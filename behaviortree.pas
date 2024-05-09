@@ -46,6 +46,7 @@ type TBehaviorStatus = integer;
     { single child behavior node that can modify the results of that child in subclasses }
     TBehaviorDecorator = class( TBehaviorNode )
        child : TBehaviorNode;
+       constructor create( ichild : TBehaviorNode );
        function Run( runner : TBehaviorRunner;
                      secondspassed : single ) : TBehaviorStatus; override;
      end;
@@ -54,6 +55,7 @@ type TBehaviorStatus = integer;
     TBehaviorComposite = class( TBehaviorNode )
        children : array of TBehaviorNode;
        constructor create;
+       constructor create2( Child0, Child1 : TBehaviorNode );
        destructor destroy; override;
        procedure add( item : TBehaviorNode );
        function RunNextChild( runner : TBehaviorRunner;
@@ -64,6 +66,19 @@ type TBehaviorStatus = integer;
     TBehaviorLeaf = class( TBehaviorNode )
 
      end;
+
+{ decorators }
+
+    {regardless if child is done running returns success regardless of childsuccess }
+    TBehavior_AlwaysSucceed = class( TBehaviorDecorator )
+       function Run( runner : TBehaviorRunner;
+                     secondspassed : single ) : TBehaviorStatus; override;
+     end;
+   {regardless if child is done running returns success regardless of childsuccess }
+
+   { loop decorator }
+
+
 
 { composite nodes }
 
@@ -104,19 +119,28 @@ TBehaviorRunner = class
    procedure UpdateActiveRunStatus( istatus : TBehaviorStatus );
  end;
 
+function SuccessOrFail( condition : boolean ) : TBehaviorStatus;
+
 implementation  //==============================================================
+
+function SuccessOrFail( condition : boolean ) : TBehaviorStatus;
+ { branchless test of condition to assign behavior_success or behavior_fail }
+ begin
+   result := ord( condition ) * behavior_success + ord( not condition ) * behavior_fail;
+ end;
+
+constructor TBehaviorDecorator.create( ichild : TBehaviorNode );
+ begin
+   assert( assigned( ichild ));
+   child := ichild;
+ end;
 
 function TBehaviorDecorator.run( runner : TBehaviorRunner;
                                  secondspassed : single ) : TBehaviorStatus;
  begin
-   if assigned( child ) then
-    begin
-      runner.datastack.push( self ); { push this node as parent for the child, it will pop when done }
-      runner.activenode := child;
-      result := child.run( runner, secondspassed );
-    end
-   else
-      result := behavior_fail;
+   runner.datastack.push( self ); { push this node as parent for the child, it will pop when done }
+   runner.activenode := child;
+   result := child.run( runner, secondspassed );
    runner.UpdateActiveRunStatus( result );
  end;
 
@@ -125,6 +149,14 @@ function TBehaviorDecorator.run( runner : TBehaviorRunner;
 constructor TBehaviorComposite.create;
  begin
    inherited;
+ end;
+
+constructor TBehaviorComposite.create2( Child0, Child1 : TBehaviorNode );
+ begin
+   inherited create;
+   setlength( children, 2 );
+   children[0] := Child0;
+   children[1] := Child1;
  end;
 
 destructor TBehaviorComposite.destroy;
@@ -238,6 +270,21 @@ function TBehaviorSelector.run( runner : TBehaviorRunner;
 
 //------------------------------------
 
+{regardless if child is done running returns success regardless of childsuccess }
+function TBehavior_AlwaysSucceed.Run( runner : TBehaviorRunner;
+                                     secondspassed : single ) : TBehaviorStatus;
+ begin
+   assert( assigned( child ));
+   runner.datastack.push( self ); { push this node as parent for the child, it will pop when done }
+   runner.activenode := child;
+   result := child.run( runner, secondspassed );
+   if result <> behavior_running then
+      result := behavior_success;
+   runner.UpdateActiveRunStatus( result );
+ end;
+
+//------------------------------------
+
 constructor TBehaviorRunner.create( iRootNode : TBehaviorNode );
  begin
    { unowned references to externally owned nodes }
@@ -260,7 +307,7 @@ function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
 
    if result <> behavior_running then
     begin
-      repeat until DataStack.Pop = nil; { clear stack even though it should already be clear }
+      assert( DataStack.Pop = nil );
       activenode := nil;
     end;
  end;
