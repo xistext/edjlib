@@ -10,7 +10,7 @@ Icosphere.pas
   Core concept based on python code from
     http://blog.andreaskahler.com/2009/06/creating-icosphere-mesh-in-code.html
   Requires Castle Game Engine.
-  Requires x3dtoos.pas.
+  Requires x3dtools.pas.
 
 BehaviorTree.pas, basedata.pas
   Core concept based on
