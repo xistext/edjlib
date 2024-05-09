@@ -19,6 +19,6 @@ BehaviorTree.pas, basedata.pas
 GPC.pas General Polygon Clipper. I ported to Delphi long long ago and used for decades
 in aviation software so it is solid.  Uses all doubles, so not perfect for CGE but
 I still find it useful.  It could be converted with some effort to use TVertex2.  
-Lets you combine polygon in any to create complex polygons with holes and islands, etc.
+Lets you combine polygon in various ways to create complex polygons with holes and islands, etc.
 
 
