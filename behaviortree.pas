@@ -74,7 +74,12 @@ type TBehaviorStatus = integer;
        function Run( runner : TBehaviorRunner;
                      secondspassed : single ) : TBehaviorStatus; override;
      end;
-   {regardless if child is done running returns success regardless of childsuccess }
+    {regardless if child is done running returns success regardless of childsuccess }
+    TBehavior_AlwaysFail  = class( TBehaviorDecorator )
+       function Run( runner : TBehaviorRunner;
+                     secondspassed : single ) : TBehaviorStatus; override;
+     end;
+
 
    { loop decorator }
 
@@ -269,10 +274,11 @@ function TBehaviorSelector.run( runner : TBehaviorRunner;
  end;
 
 //------------------------------------
+{ decorators }
 
-{regardless if child is done running returns success regardless of childsuccess }
 function TBehavior_AlwaysSucceed.Run( runner : TBehaviorRunner;
                                      secondspassed : single ) : TBehaviorStatus;
+ { regardless if child is done running returns success regardless of childsuccess }
  begin
    assert( assigned( child ));
    runner.datastack.push( self ); { push this node as parent for the child, it will pop when done }
@@ -280,6 +286,19 @@ function TBehavior_AlwaysSucceed.Run( runner : TBehaviorRunner;
    result := child.run( runner, secondspassed );
    if result <> behavior_running then
       result := behavior_success;
+   runner.UpdateActiveRunStatus( result );
+ end;
+
+function TBehavior_AlwaysFail.Run( runner : TBehaviorRunner;
+                                   secondspassed : single ) : TBehaviorStatus;
+ { regardless if child is done running returns success regardless of childsuccess }
+ begin
+   assert( assigned( child ));
+   runner.datastack.push( self ); { push this node as parent for the child, it will pop when done }
+   runner.activenode := child;
+   result := child.run( runner, secondspassed );
+   if result <> behavior_running then
+      result := behavior_fail;
    runner.UpdateActiveRunStatus( result );
  end;
 
@@ -321,6 +340,7 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
       activenode := TBehaviorNode( DataStack.pop ); { set active node to prior node in stack after success or fail }
     end;
  end;
+
 
 end.
 
