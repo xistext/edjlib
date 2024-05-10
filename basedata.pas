@@ -52,11 +52,11 @@ TBehaviorDataStack = class { for storing data }
 
     procedure pushint( i : integer );
     function popint : integer;
-    function peekint : integer;  { look at what would have popped without popping }
+    function peekint( var i : integer ) : boolean;  { look at what would have popped without popping }
 
     procedure pushsingle( i : single );
     function popsingle : single;
-    function peeksingle : single;  { look at what would have popped without popping }
+    function peeksingle( var s: single ) : boolean; { look at what would have popped without popping }
 
     private
     stack : array of tobject;
@@ -171,18 +171,20 @@ function TBehaviorDataStack.popint : integer;
     end;
  end;
 
-function TBehaviorDataStack.peekint : integer;  { look at what would have popped without popping }
+function TBehaviorDataStack.peekint( var i : integer ) : boolean;  { look at what would have popped without popping }
  var l : integer;
      item : tobject;
  begin
-    result := 0;
+    i := 0;
     l := length( stack );
-    if l > 0 then
+    result := l > 0;
+    if result then
      begin
        dec( l );
        item := stack[l];
-       if item is TBehaviorInt then
-          result := TBehaviorData( item ).asinteger;
+       result := item is TBehaviorInt;
+       if result then
+          i := TBehaviorData( item ).asinteger;
      end;
  end;
 
@@ -204,18 +206,20 @@ begin
    end;
 end;
 
-function TBehaviorDataStack.peeksingle : single;  { look at what would have popped without popping }
+function TBehaviorDataStack.peeksingle( var s : single ) : boolean;  { look at what would have popped without popping }
  var l : integer;
      item : tobject;
  begin
-    result := 0;
+    s := 0;
     l := length( stack );
-    if l > 0 then
+    result := l > 0;
+    if result then
      begin
        dec( l );
        item := stack[l];
-       if item is TBehaviorSingle then
-          result := TBehaviorData( item ).assingle;
+       result := item is TBehaviorSingle;
+       if result then
+          s := TBehaviorData( item ).assingle;
      end;
  end;
 
