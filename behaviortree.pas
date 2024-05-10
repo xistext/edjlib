@@ -13,14 +13,16 @@ unit BehaviorTree;
   Free to use and modify in any way you want.
   Example code. No warranty.  Use at your own risk. }
 
-{ TBehaviorRunner keeps track of active node so doesn't have to traverse to find it.
+{ TBehaviorRunner keeps track of active node so doesn't have to traverse to find it,
+  and provide blackboard data to agent objects (as defined in subclasses)
   Designed so a behavior tree can be shared by many objects without taking more
   data than the TBehaviorRunner and its data stack per object. }
 
 interface
 
 
-//{$define dbgbehavior} { compiler directive to turn on behavior debug output}
+{$define dbgbehavior} { compiler directive to turn on behavior debug output}
+{$APPTYPE console}
 
 uses Classes, SysUtils,
      basedata,
@@ -31,6 +33,9 @@ const behavior_notrun  = 0; { not used }
       behavior_running = 1;
       behavior_success = 2;
       behavior_fail    = 3;
+      {$ifdef dbgbehavior}
+      tickcount : integer = 0;
+      {$endif}
 
 type TBehaviorStatus = integer;
 
@@ -83,21 +88,27 @@ type TBehaviorStatus = integer;
     TBehavior_ForceSuccess = class( TBehaviorDecorator )
        function Run( runner : TBehaviorRunner;
                      secondspassed : single ) : TBehaviorStatus; override;
+       function description : string; override;
      end;
     {regardless if child is done running returns success regardless of childsuccess }
     TBehavior_ForceFail  = class( TBehaviorDecorator )
        function Run( runner : TBehaviorRunner;
                      secondspassed : single ) : TBehaviorStatus; override;
+       function description : string; override;
      end;
     {inverts child results if not running }
     TBehavior_Inverter  = class( TBehaviorDecorator )
        function Run( runner : TBehaviorRunner;
                      secondspassed : single ) : TBehaviorStatus; override;
+       function description : string; override;
      end;
 
-   { loop decorator }
-
-
+    { others to implement... }
+    { Repeat }
+    { RetryUntilSuccessful }
+    { KeepRunningUntilFailure }
+    { Delay }
+    { https://www.behaviortree.dev/docs/nodes-library/decoratornode/ }
 
 { composite nodes }
 
@@ -183,7 +194,7 @@ function TBehaviorNode.Run( runner : TBehaviorRunner;
                             secondspassed : single ) : TBehaviorStatus;
  begin
   {$ifdef dbgBehavior}
-  outputdebugstring( pchar( description ));
+  write( description + '[' );
   {$endif}
  end;
 
@@ -236,7 +247,7 @@ function TBehaviorComposite.RunNextChild( runner : TBehaviorRunner;
    if not runner.datastack.peekint( childix ) then
       runner.datastack.pushint( childix ); { push childix to the stack if it wasn't there }
    {$ifdef dbgBehavior}
-   outputdebugstring( pchar( ' child'+inttostr( childix )));
+   write( ' child'+inttostr( childix )+'>');
    {$endif}
 
    assert( childix < childcount );
@@ -359,6 +370,11 @@ function TBehavior_ForceSuccess.Run( runner : TBehaviorRunner;
    runner.UpdateActiveRunStatus( result );
  end;
 
+function TBehavior_ForceSuccess.description : string;
+ begin
+   result := 'ForceSuccess'
+ end;
+
 function TBehavior_ForceFail.Run( runner : TBehaviorRunner;
                                   secondspassed : single ) : TBehaviorStatus;
  { regardless if child is done running returns success regardless of childsuccess }
@@ -370,6 +386,11 @@ function TBehavior_ForceFail.Run( runner : TBehaviorRunner;
    if result <> behavior_running then
       result := behavior_fail;
    runner.UpdateActiveRunStatus( result );
+ end;
+
+function TBehavior_ForceFail.description : string;
+ begin
+   result := 'ForceFail'
  end;
 
 function TBehavior_Inverter.run( runner : TBehaviorRunner;
@@ -385,6 +406,11 @@ function TBehavior_Inverter.run( runner : TBehaviorRunner;
       behavior_fail    : result := behavior_success;
     end;
    runner.UpdateActiveRunStatus( result );
+ end;
+
+function TBehavior_Inverter.description : string;
+ begin
+   result := 'Invert'
  end;
 
 //------------------------------------
@@ -414,7 +440,8 @@ procedure TBehaviorRunner.StackActiveNode( NewActiveNode : TBehaviorNode );
 function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
  begin
    {$ifdef dbgBehavior}
-   outputdebugstring( '>-RunTick--------');
+   write( '>-Tick'+IntToStr( tickcount )+':');
+   inc( tickcount );
    {$endif }
    if not assigned( activenode ) then
       activenode := rootnode;
@@ -435,8 +462,9 @@ function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
    else
     begin
       assert( datastack.pop = nil );    { stack should be clear when finished }
-      activenode := nil;
+      write('.');
     end;
+   writeln( '' );
  end;
 
 procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
@@ -445,9 +473,9 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
  begin
    {$ifdef dbgBehavior}
    case istatus of
-      behavior_success : outputdebugstring( pchar('  success '+activenode.description ));
-      behavior_fail    : outputdebugstring( pchar('  fail '+activenode.description ));
-      behavior_running : outputdebugstring( pchar('  running '+activenode.description ));
+      behavior_success : write(']: Success ' );
+      behavior_fail    : write(']: Fail ' );
+      behavior_running : write(']: Running ' );
     end;
    {$endif}
    if istatus <> behavior_running then
@@ -459,6 +487,19 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
     end;
  end;
 
-
+var success : boolean;
+initialization
+  {$ifdef dbgBehavior}
+  AllocConsole;
+  success := false;
+  repeat
+     try
+        writeln( 'console allocated' );
+        success := true;
+     except on einouterror do
+      sleep( 50 );
+     end;
+   until success;
+  {$endif}
 end.
 
