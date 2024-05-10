@@ -19,14 +19,12 @@ unit BehaviorTree;
 
 interface
 
-{ use compiler directive dbgbehavior to turn on debugging }
-{$define dbgbehavior}
+
+//{$define dbgbehavior} { compiler directive to turn on behavior debug output}
 
 uses Classes, SysUtils,
      basedata,
      windows ; { for debug output }
-
-
 
 { behavior status values }
 const behavior_notrun  = 0; { not used }
@@ -45,6 +43,7 @@ type TBehaviorStatus = integer;
      TBehaviorNode = class
 
        name : string;
+       constructor create( iname : string = '' );
        function Run( runner : TBehaviorRunner;
                      secondspassed : single ) : TBehaviorStatus; virtual;
        function description : string; dynamic;
@@ -54,14 +53,16 @@ type TBehaviorStatus = integer;
     { single child behavior node that can modify the results of that child in subclasses }
     TBehaviorDecorator = class( TBehaviorNode )
        child : TBehaviorNode;
-       constructor create( ichild : TBehaviorNode );
+       constructor create( ichild : TBehaviorNode;
+                           iname : string = '' );
      end;
 
     { multichild behavior node.  how those children are processed depends on subclasses }
     TBehaviorComposite = class( TBehaviorNode )
        children : array of TBehaviorNode;
-       constructor create;
-       constructor create2( Child0, Child1 : TBehaviorNode );
+       constructor create( iname : string = '' );
+       constructor create2( Child0, Child1 : TBehaviorNode;
+                            iname : string = '');
        destructor destroy; override;
        procedure add( item : TBehaviorNode );
        function RunNextChild( runner : TBehaviorRunner;
@@ -167,10 +168,16 @@ function FailOrRunning( condition : boolean ) : TBehaviorStatus;
    result := ord( condition ) * behavior_fail + ord( not condition ) * behavior_running;
  end;
 
+constructor TBehaviorNode.create( iname : string = '');
+ begin
+   name := iname;
+ end;
+
 function TBehaviorNode.description : string;
  begin
    result := name;
  end;
+
 
 function TBehaviorNode.Run( runner : TBehaviorRunner;
                             secondspassed : single ) : TBehaviorStatus;
@@ -180,22 +187,25 @@ function TBehaviorNode.Run( runner : TBehaviorRunner;
   {$endif}
  end;
 
-constructor TBehaviorDecorator.create( ichild : TBehaviorNode );
+constructor TBehaviorDecorator.create( ichild : TBehaviorNode;
+                                       iname : string = '' );
  begin
+   inherited create( iname );
    assert( assigned( ichild ));
    child := ichild;
  end;
 
 //--------------------------------
 
-constructor TBehaviorComposite.create;
+constructor TBehaviorComposite.create( iname : string = '' );
  begin
    inherited;
  end;
 
-constructor TBehaviorComposite.create2( Child0, Child1 : TBehaviorNode );
+constructor TBehaviorComposite.create2( Child0, Child1 : TBehaviorNode;
+                                        iname : string = '' );
  begin
-   inherited create;
+   inherited create( iname );
    setlength( children, 2 );
    children[0] := Child0;
    children[1] := Child1;
@@ -424,8 +434,7 @@ function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
     end
    else
     begin
-      assert( datastack.pop = nil );
-//     repeat until DataStack.Pop = nil;   { clear stack though it should already be clear }
+      assert( datastack.pop = nil );    { stack should be clear when finished }
       activenode := nil;
     end;
  end;
