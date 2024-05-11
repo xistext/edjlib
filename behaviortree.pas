@@ -152,7 +152,7 @@ TBehaviorRunner = class
    constructor create( iRootNode : TBehaviorNode );
    destructor destroy; override;
    procedure StackActiveNode( NewActiveNode : TBehaviorNode );
-   function RunTick( secondspassed : single ) : TBehaviorStatus;
+   function RunTick( secondspassed : single ) : TBehaviorStatus; virtual;
    { all Run calls must call this when finished with a current status to update the active node from the stack as needed }
    procedure UpdateActiveRunStatus( istatus : TBehaviorStatus );
  end;
