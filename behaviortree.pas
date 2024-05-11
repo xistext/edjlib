@@ -9,7 +9,7 @@ unit BehaviorTree;
 { https://www.gamedeveloper.com/programming/behavior-trees-for-ai-how-they-work#close-modal }
 { https://robohub.org/introduction-to-behavior-trees/ }
 
-{ Erik Donovan Johnson erikquiet@edj.net
+{ Erik Donovan Johnson erikquiet@gmail.com
   Free to use and modify in any way you want.
   Example code. No warranty.  Use at your own risk. }
 
@@ -24,8 +24,7 @@ interface
 //{$define dbgbehavior} { compiler directive to turn on behavior debug output defined in project options }
 
 uses Classes, SysUtils,
-     basedata,
-     windows ; { for debug output }
+     basedata;
 
 { behavior status values }
 const behavior_notrun  = 0; { not used }
@@ -303,7 +302,7 @@ function TBehaviorSequence.Tick( runner : TBehaviorRunner;
 
 function TBehaviorSequence.description : string;
  begin
-   result := inherited + ' ' + char(16);
+   result := inherited + '-' + char(16);
  end;
 
 //--------------------------------
@@ -342,7 +341,7 @@ function TBehaviorSelector.Tick( runner : TBehaviorRunner;
 
 function TBehaviorSelector.description : string;
  begin
-   result := inherited + ' ?';
+   result := inherited + '-?';
  end;
 
 //------------------------------------
@@ -438,7 +437,7 @@ function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
       activenode := rootnode;
    result := activenode.Tick( self, secondspassed ); { active node will change to the deepest running child }
 
-   {!!! how to properly manage the stack when completing the run of children in a different tick???}
+   { manage the stack when completing the run of children from a different tick }
    if assigned( activenode ) then
     begin
       while ( result <> behavior_running ) and ( activenode is TBehaviorComposite ) do
@@ -453,9 +452,9 @@ function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
    else
     begin
       assert( datastack.pop = nil );    { stack should be clear when finished }
-      write('.');
+      {$ifdef dgbBehavior}write('.');{$endif}
     end;
-   writeln( '' );
+   {$ifdef dbgBehavior}writeln( '' );{$endif}
  end;
 
 procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
@@ -464,9 +463,9 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
  begin
    {$ifdef dbgBehavior}
    case istatus of
-      behavior_success : write('): Success ' );
-      behavior_fail    : write('): Fail ' );
-      behavior_running : write('): Running ' );
+      behavior_success : write('):Success' );
+      behavior_fail    : write('):Fail' );
+      behavior_running : write('):Running' );
     end;
    {$endif}
    if istatus <> behavior_running then

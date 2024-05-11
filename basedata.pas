@@ -2,7 +2,7 @@ unit basedata;
 
 {$mode ObjFPC}{$H+}
 
-{ Erik Donovan Johnson erikquiet@edj.net
+{ Erik Donovan Johnson erikquiet@gmail.com
   Free to use and modify in any way you want.
   Example code. No warranty.  Use at your own risk. }
 
