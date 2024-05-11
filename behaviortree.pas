@@ -157,6 +157,7 @@ TBehaviorRunner = class
    procedure UpdateActiveRunStatus( istatus : TBehaviorStatus );
  end;
 
+{ branchless ways to set statuses }
 function SuccessOrFail( condition : boolean ) : TBehaviorStatus;
 function SuccessOrRunning( condition : boolean ) : TBehaviorStatus;
 function FailOrRunning( condition : boolean ) : TBehaviorStatus;
@@ -189,7 +190,6 @@ function TBehaviorNode.description : string;
  begin
    result := name;
  end;
-
 
 function TBehaviorNode.Tick( runner : TBehaviorRunner;
                              secondspassed : single ) : TBehaviorStatus;
@@ -270,25 +270,37 @@ function TBehaviorComposite.incchildindex( runner : TBehaviorRunner ) : boolean;
 
 //--------------------------------
 
+  function _sequencesuccess( sequence : TBehaviorSequence;
+                             runner   : TBehaviorRunner ) : TBehaviorStatus;
+   begin
+     result := successorrunning( not sequence.incchildindex( runner ));
+     { else finished with success }
+   end;
+
+  function _sequencefail( sequence : TBehaviorSequence;
+                          runner   : TBehaviorRunner ) : TBehaviorStatus;
+   var dummy : integer;
+   begin
+     result := behavior_fail;
+     if runner.datastack.peekint( dummy ) then
+        runner.datastack.popint; { finished with fail }
+   end;
+
+  function _sequencerunning( sequence : TBehaviorSequence;
+                             runner   : TBehaviorRunner ) : TBehaviorStatus;
+   begin
+     result := behavior_running; { running will continue waiting for child, success will halt iteration with success }
+   end;
+
+  type tsequenceproc = function( sequence : TBehaviorSequence;
+                                 runner : TBehaviorRunner ) : TBehaviorStatus;
+  const sequenceprocs : array[behavior_running..behavior_fail] of tsequenceproc =
+                             ( @_sequencerunning, @_sequencesuccess, @_sequencefail );
+
 function TBehaviorSequence.processchildstatus( runner : TBehaviorRunner;
                                                childstatus : TBehaviorStatus ) : TBehaviorStatus;
- var dummy : integer;
  begin
-   result := childstatus;
-   case childstatus of
-      behavior_success : begin
-                          if incchildindex( runner ) then
-                             result := behavior_running;
-                          { else finished with success }
-                         end;
-      behavior_fail : begin
-                        if runner.datastack.peekint( dummy ) then
-                           runner.datastack.popint; { finished with fail }
-                      end;
-      behavior_running : begin
-                        { running will continue waiting for child, success will halt iteration with success }
-                         end;
-    end;
+   result := sequenceprocs[childstatus]( self, runner );
  end;
 
 function TBehaviorSequence.Tick( runner : TBehaviorRunner;
@@ -313,25 +325,36 @@ function TBehaviorSequence.description : string;
 
 //--------------------------------
 
+  function _selectorsuccess( selector : TBehaviorSelector;
+                             runner   : TBehaviorRunner ) : TBehaviorStatus;
+   var dummy : integer;
+   begin
+     result := behavior_success;
+     if runner.datastack.peekint( dummy ) then
+        runner.datastack.popint; { finished with success }
+   end;
+
+  function _selectorfail( selector : TBehaviorSelector;
+                          runner   : TBehaviorRunner ) : TBehaviorStatus;
+   begin
+     result := failorrunning( not selector.incchildindex( runner )); { else finished with fail }
+   end;
+
+  function _selectorrunning( selector : TBehaviorSelector;
+                             runner   : TBehaviorRunner ) : TBehaviorStatus;
+   begin
+     result := behavior_running; { running will continue waiting for child, success will halt iteration with success }
+   end;
+
+  type tselectorproc = function( selector : TBehaviorSelector;
+                                 runner : TBehaviorRunner ) : TBehaviorStatus;
+  const selectorprocs : array[behavior_running..behavior_fail] of tselectorproc =
+                              ( @_selectorrunning, @_selectorsuccess, @_selectorfail );
+
 function TBehaviorSelector.processchildstatus( runner : TBehaviorRunner;
                                                childstatus : TBehaviorStatus ) : TBehaviorStatus;
- var dummy : integer;
  begin
-   result := childstatus;
-   case childstatus of
-      behavior_success : begin
-                           if runner.datastack.peekint( dummy ) then
-                              runner.datastack.popint; { finished with success }
-                         end;
-      behavior_fail : begin
-                          if incchildindex( runner ) then
-                             result := behavior_running;
-                          { else finished with fail }
-                      end;
-      behavior_running : begin
-                        { running will continue waiting for child, success will halt iteration with success }
-                         end;
-    end;
+   result := selectorprocs[childstatus]( self, runner );
  end;
 
 function TBehaviorSelector.Tick( runner : TBehaviorRunner;
@@ -365,8 +388,7 @@ function TBehavior_ForceSuccess.Tick( runner : TBehaviorRunner;
    assert( assigned( child ));
    runner.stackactivenode( child );
    result := child.Tick( runner, secondspassed );
-   if result <> behavior_running then
-      result := behavior_success;
+   result := successorrunning( result <> behavior_running );
    runner.UpdateActiveRunStatus( result );
  end;
 
@@ -383,8 +405,7 @@ function TBehavior_ForceFail.Tick( runner : TBehaviorRunner;
    assert( assigned( child ));
    runner.stackactivenode( child );
    result := child.Tick( runner, secondspassed );
-   if result <> behavior_running then
-      result := behavior_fail;
+   result := failorrunning( result <> behavior_running );
    runner.UpdateActiveRunStatus( result );
  end;
 
@@ -443,7 +464,7 @@ function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
    write( ':Tick'+IntToStr( tickcount )+':');
    inc( tickcount );
    {$endif }
-   if not assigned( activenode ) then
+   if not assigned( activenode ) then  { start over from root }
       activenode := rootnode;
    result := activenode.Tick( self, secondspassed ); { active node will change to the deepest running child }
 
@@ -462,21 +483,22 @@ function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
    else
     begin
       assert( datastack.IsEmpty );    { stack should be clear when finished }
-      {$ifdef dgbBehavior}write('.');{$endif}
+      {$ifdef dbgBehavior}write('.');{$endif}
     end;
    {$ifdef dbgBehavior}writeln( '' );{$endif}
  end;
+
+  {$ifdef dbgBehavior}
+  const resultstrings : array[behavior_running..behavior_fail] of string =
+                             ('):Running','):Success','):Fail' );
+  {$endif}
 
 procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
  var dum1 : integer;
      dum2 : single;
  begin
    {$ifdef dbgBehavior}
-   case istatus of
-      behavior_success : write('):Success' );
-      behavior_fail    : write('):Fail' );
-      behavior_running : write('):Running' );
-    end;
+   write( resultstrings[istatus] );
    {$endif}
    if istatus <> behavior_running then
     begin
