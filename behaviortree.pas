@@ -63,9 +63,12 @@ type TBehaviorStatus = integer;
     { multichild behavior node.  how those children are processed depends on subclasses }
     TBehaviorComposite = class( TBehaviorNode )
        children : array of TBehaviorNode;
-       constructor create( iname : string = '' );
        constructor create2( Child0, Child1 : TBehaviorNode;
                             iname : string = '');
+       constructor create3( Child0, Child1, Child2 : TBehaviorNode;
+                            iname : string = '' );
+       constructor create4( Child0, Child1, Child2, Child3 : TBehaviorNode;
+                            iname : string = '' );
        destructor destroy; override;
        procedure add( item : TBehaviorNode );
        function RunNextChild( runner : TBehaviorRunner;
@@ -208,11 +211,8 @@ constructor TBehaviorDecorator.create( ichild : TBehaviorNode;
  end;
 
 //--------------------------------
-
-constructor TBehaviorComposite.create( iname : string = '' );
- begin
-   inherited;
- end;
+{ Composite node is parent class for the list nodes
+  !don't use directly }
 
 constructor TBehaviorComposite.create2( Child0, Child1 : TBehaviorNode;
                                         iname : string = '' );
@@ -221,6 +221,27 @@ constructor TBehaviorComposite.create2( Child0, Child1 : TBehaviorNode;
    setlength( children, 2 );
    children[0] := Child0;
    children[1] := Child1;
+ end;
+
+constructor TBehaviorComposite.create3( Child0, Child1, Child2 : TBehaviorNode;
+                                        iname : string = '' );
+ begin
+   inherited create( iname );
+   setlength( children, 3 );
+   children[0] := Child0;
+   children[1] := Child1;
+   children[2] := Child2;
+ end;
+
+constructor TBehaviorComposite.create4( Child0, Child1, Child2, Child3 : TBehaviorNode;
+                                        iname : string = '' );
+ begin
+   inherited create( iname );
+   setlength( children, 4 );
+   children[0] := Child0;
+   children[1] := Child1;
+   children[2] := Child2;
+   children[3] := Child3;
  end;
 
 destructor TBehaviorComposite.destroy;
