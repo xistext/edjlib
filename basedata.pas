@@ -18,30 +18,18 @@ type
 
 { data class stores integer or single as implemented in subclasses }
 TBehaviorData = class
-   private
-   procedure setinteger( ivalue : integer ); virtual;
-   function getinteger : integer; virtual;
-   procedure setsingle( ivalue : single ); virtual;
-   function getsingle : single; virtual;
-   public
-   property asinteger : integer read getinteger write setinteger;
-   property assingle  : single read getsingle write setsingle;
  end;
 
 TBehaviorInt = class( TBehaviorData )
    constructor create( ivalue : integer );
-   private
+   protected
    value : integer;
-   procedure setinteger( ivalue : integer ); override;
-   function getinteger : integer; override;
  end;
 
 TBehaviorSingle = class( TBehaviorData )
    constructor create( ivalue : single );
-   private
+   protected
    value : single;
-   procedure setsingle( ivalue : single ); override;
-   function getsingle : single; override;
  end;
 
 TBehaviorDataStack = class { for storing data }
@@ -64,52 +52,14 @@ TBehaviorDataStack = class { for storing data }
 
 implementation
 
-procedure TBehaviorData.setinteger( ivalue : integer );
- begin
- end;
-
-function TBehaviorData.getinteger : integer;
- begin
-   result := 0;
- end;
-
-procedure TBehaviorData.setsingle( ivalue : single );
- begin
- end;
-
-function TBehaviorData.getsingle : single;
- begin
-   result := 0;
- end;
-
 constructor TBehaviorInt.create( ivalue : integer );
  begin
    value := ivalue;
  end;
 
-procedure TBehaviorInt.setinteger( ivalue : integer );
- begin
-   value := ivalue;
- end;
-
-function TBehaviorInt.getinteger : integer;
- begin
-   result := value;
- end;
-
 constructor TBehaviorSingle.create( ivalue : single );
  begin
    value := iValue;
- end;
-
-procedure TBehaviorSingle.setsingle( ivalue : single );
- begin
-   value := ivalue;
- end;
-
-function TBehaviorSingle.getsingle : single;
- begin
-   result := value;
  end;
 
 //-------------------------------
@@ -163,12 +113,10 @@ function TBehaviorDataStack.popint : integer;
  begin
    result := 0;
    item := tobject( pop );
-   if assigned( item ) then
-    begin
-      assert( item is TBehaviorInt ); { enforced types to be safer }
-      result := TBehaviorData( item ).asinteger;
-      item.free;
-    end;
+   assert( assigned( item ));
+   assert( item is TBehaviorInt ); { enforced types to be safer }
+   result := TBehaviorInt( item ).value;
+   item.free;
  end;
 
 function TBehaviorDataStack.peekint( var i : integer ) : boolean;  { look at what would have popped without popping }
@@ -184,7 +132,7 @@ function TBehaviorDataStack.peekint( var i : integer ) : boolean;  { look at wha
        item := stack[l];
        result := item is TBehaviorInt;
        if result then
-          i := TBehaviorData( item ).asinteger;
+          i := TBehaviorInt( item ).value;
      end;
  end;
 
@@ -198,12 +146,10 @@ var item : tobject;
 begin
   result := 0;
   item := tobject( pop );
-  if assigned( item ) then
-   begin
-     assert( item is TBehaviorSingle ); { enforced types to be safer }
-     result := TBehaviorData( item ).assingle;
-     item.free;
-   end;
+  assert( assigned( item ));
+  assert( item is TBehaviorSingle ); { enforced types to be safer }
+  result := TBehaviorSingle( item ).value;
+  item.free;
 end;
 
 function TBehaviorDataStack.peeksingle( var s : single ) : boolean;  { look at what would have popped without popping }
@@ -219,7 +165,7 @@ function TBehaviorDataStack.peeksingle( var s : single ) : boolean;  { look at w
        item := stack[l];
        result := item is TBehaviorSingle;
        if result then
-          s := TBehaviorData( item ).assingle;
+          s := TBehaviorSingle( item ).value;
      end;
  end;
 
