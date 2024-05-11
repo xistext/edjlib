@@ -34,6 +34,7 @@ const behavior_notrun  = 0; { not used }
       {$ifdef dbgbehavior}
       tickcount : integer = 0;
       {$endif}
+      xmlindent : integer = 3;
 
 type TBehaviorStatus = integer;
 
@@ -50,6 +51,7 @@ type TBehaviorStatus = integer;
        function Tick( runner : TBehaviorRunner;
                       secondspassed : single ) : TBehaviorStatus; virtual;
        function description : string; dynamic;
+       function getxml( indent : integer = 0 ) : string; dynamic; abstract;
 
      end;
 
@@ -58,6 +60,7 @@ type TBehaviorStatus = integer;
        child : TBehaviorNode;
        constructor create( ichild : TBehaviorNode;
                            iname : string = '' );
+       function getxml( indent : integer = 0 ) : string; override;
      end;
 
     { multichild behavior node.  how those children are processed depends on subclasses }
@@ -80,7 +83,7 @@ type TBehaviorStatus = integer;
 
     { sublass this to make checks and actions in overloaded Run methods }
     TBehaviorLeaf = class( TBehaviorNode )
-
+       function getxml( indent : integer = 0 ) : string; override;
      end;
 
 { decorators }
@@ -128,6 +131,7 @@ type TBehaviorStatus = integer;
        function processchildstatus( runner : TBehaviorRunner;
                                     childstatus : TBehaviorStatus ) : TBehaviorStatus; override;
        function description : string; override;
+       function getxml( indent : integer = 0 ) : string; override;
      end;
 
     { Selector : Unlike sequence which is AND, requiring all children to succeed to
@@ -145,6 +149,7 @@ type TBehaviorStatus = integer;
        function processchildstatus( runner : TBehaviorRunner;
                                     childstatus : TBehaviorStatus ) : TBehaviorStatus; override;
        function description : string; override;
+       function getxml( indent : integer = 0 ) : string; override;
      end;
 
 { keep track of active behavior node and other info (in subclass) }
@@ -202,12 +207,32 @@ function TBehaviorNode.Tick( runner : TBehaviorRunner;
   {$endif}
  end;
 
+function TBehaviorLeaf.getxml( indent : integer = 0 ) : string;
+ var indentstring : string;
+ begin
+   setlength( indentstring, indent );
+   fillchar( pchar( indentstring )^, indent, ' ' );
+   result := indentstring + format( '<%s name="%s"/>', [ClassName,name] )+#13#10;
+ end;
+
+//---------------------------------
+
 constructor TBehaviorDecorator.create( ichild : TBehaviorNode;
                                        iname : string = '' );
  begin
    inherited create( iname );
    assert( assigned( ichild ));
    child := ichild;
+ end;
+
+function TBehaviorDecorator.getxml( indent : integer = 0 ) : string;
+ var indentstring : string;
+ begin
+   setlength( indentstring, indent );
+   fillchar( pchar( indentstring )^, indent, ' ' );
+   result := indentstring + format( '<%s name="%s">', [ClassName,name] )+#13#10;
+   result := result + child.getxml( indent + xmlindent );
+   result := result + indentstring + format( '</%s>', [ClassName] )+#13#10;
  end;
 
 //--------------------------------
@@ -344,6 +369,20 @@ function TBehaviorSequence.description : string;
    result := inherited + '-' + char(16);
  end;
 
+function TBehaviorSequence.getxml( indent : integer ) : string;
+ var indentstring : string;
+     i : integer;
+ const tagname = 'Sequence';
+ begin
+   setlength( indentstring, indent );
+   fillchar( pchar( indentstring )^, indent, ' ' );
+   Result := indentstring+format('<%s name="%s">', [tagname,name])+#13#10;
+   inc( indent, 3 );
+   for i := 0 to length( children ) - 1 do
+      result := result + children[i].getxml( indent );
+   Result := Result + indentstring+format('</%s>', [tagname])+#13#10;
+ end;
+
 //--------------------------------
 
   function _selectorsuccess( selector : TBehaviorSelector;
@@ -396,6 +435,20 @@ function TBehaviorSelector.Tick( runner : TBehaviorRunner;
 function TBehaviorSelector.description : string;
  begin
    result := inherited + '-?';
+ end;
+
+function TBehaviorSelector.getxml( indent : integer ) : string;
+ var indentstring : string;
+     i : integer;
+ const tagname = 'Fallback';
+ begin
+   setlength( indentstring, indent );
+   fillchar( pchar( indentstring )^, indent, ' ' );
+   Result := indentstring+format('<%s name="%s">', [tagname,name])+#13#10;
+   inc( indent, 3 );
+   for i := 0 to length( children ) - 1 do
+      result := result + children[i].getxml( indent );
+   Result := Result + indentstring+format('</%s>', [tagname])+#13#10;
  end;
 
 //------------------------------------
