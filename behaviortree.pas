@@ -21,8 +21,7 @@ unit BehaviorTree;
 interface
 
 
-{$define dbgbehavior} { compiler directive to turn on behavior debug output}
-{$APPTYPE console}
+//{$define dbgbehavior} { compiler directive to turn on behavior debug output defined in project options }
 
 uses Classes, SysUtils,
      basedata,
@@ -304,9 +303,7 @@ function TBehaviorSequence.run( runner : TBehaviorRunner;
 
 function TBehaviorSequence.description : string;
  begin
-   result := inherited;
-   if result = '' then
-      result := 'Sequence';
+   result := inherited + char(16);
  end;
 
 //--------------------------------
@@ -337,21 +334,15 @@ function TBehaviorSelector.run( runner : TBehaviorRunner;
    inherited; { debug output if needed }
    childcount := length( children );
    runner.datastack.peekint( childix ); { peek for childix on stack, will be 0 if none }
-   if childix < childcount then
-    begin
-      result := RunNextChild( runner, secondspassed );
-      result := processChildStatus( runner, result );
-    end
-   else
-      result := behavior_fail;
+   assert( childix < childcount );
+   result := RunNextChild( runner, secondspassed );
+   result := processChildStatus( runner, result );
    runner.UpdateActiveRunStatus( result );
  end;
 
 function TBehaviorSelector.description : string;
  begin
-   result := inherited;
-   if result = '' then
-      result := 'Selector';
+   result := inherited + '?';
  end;
 
 //------------------------------------
@@ -450,7 +441,7 @@ function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
    {!!! how to properly manage the stack when completing the run of children in a different tick???}
    if assigned( activenode ) then
     begin
-      if activenode is TBehaviorComposite then
+      while ( result <> behavior_running ) and ( activenode is TBehaviorComposite ) do
        begin
          { if already processed, will be 'running', so will do nothing, otherwise
            insures child results of composites are handled, even when run directly from here. }
@@ -487,19 +478,9 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
     end;
  end;
 
-var success : boolean;
 initialization
   {$ifdef dbgBehavior}
-  AllocConsole;
-  success := false;
-  repeat
-     try
-        writeln( 'console allocated' );
-        success := true;
-     except on einouterror do
-      sleep( 50 );
-     end;
-   until success;
+  writeln( 'Behavior debugging enabled' );
   {$endif}
 end.
 
