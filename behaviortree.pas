@@ -50,6 +50,8 @@ type TBehaviorStatus = integer;
        constructor create( iname : string = '' );
        function Tick( runner : TBehaviorRunner;
                       secondspassed : single ) : TBehaviorStatus; virtual;
+       { non core functionality }
+       function childcount : integer; dynamic;
        function description : string; dynamic;
        function getxml( indent : integer = 0 ) : string; dynamic; abstract;
 
@@ -60,6 +62,8 @@ type TBehaviorStatus = integer;
        child : TBehaviorNode;
        constructor create( ichild : TBehaviorNode;
                            iname : string = '' );
+       { non core functionality }
+       function childcount : integer; override;
        function getxml( indent : integer = 0 ) : string; override;
      end;
 
@@ -73,6 +77,7 @@ type TBehaviorStatus = integer;
        constructor create4( Child0, Child1, Child2, Child3 : TBehaviorNode;
                             iname : string = '' );
        destructor destroy; override;
+       function childcount : integer; override;
        procedure add( item : TBehaviorNode );
        function RunNextChild( runner : TBehaviorRunner;
                               secondspassed : single ) : TBehaviorStatus;
@@ -165,6 +170,15 @@ TBehaviorRunner = class
    procedure UpdateActiveRunStatus( istatus : TBehaviorStatus );
  end;
 
+type ttreecallback = procedure( node : TBehaviorNode;
+                                data : pointer );
+
+procedure treecallback( node : TBehaviorNode;
+                        data : pointer );
+procedure iteratetree( rootnode : TBehaviorNode;
+                       callback : ttreecallback;
+                       data : pointer );
+
 { branchless ways to set statuses }
 function SuccessOrFail( condition : boolean ) : TBehaviorStatus;
 function SuccessOrRunning( condition : boolean ) : TBehaviorStatus;
@@ -199,6 +213,11 @@ function TBehaviorNode.description : string;
    result := name;
  end;
 
+function TBehaviorNode.childcount : integer;
+ begin
+   result := 0;
+ end;
+
 function TBehaviorNode.Tick( runner : TBehaviorRunner;
                              secondspassed : single ) : TBehaviorStatus;
  begin
@@ -223,6 +242,11 @@ constructor TBehaviorDecorator.create( ichild : TBehaviorNode;
    inherited create( iname );
    assert( assigned( ichild ));
    child := ichild;
+ end;
+
+function TBehaviorDecorator.childcount : integer;
+ begin
+   result := 1;
  end;
 
 function TBehaviorDecorator.getxml( indent : integer = 0 ) : string;
@@ -277,6 +301,11 @@ destructor TBehaviorComposite.destroy;
    setlength( children, 0 );
  end;
 
+function TBehaviorComposite.childcount : integer;
+ begin
+   result := length( children );
+ end;
+
 procedure TBehaviorComposite.add( item : TBehaviorNode );
  var l : integer;
  begin
@@ -287,10 +316,9 @@ procedure TBehaviorComposite.add( item : TBehaviorNode );
 
 function TBehaviorComposite.RunNextChild( runner : TBehaviorRunner;
                                           secondspassed : single ) : TBehaviorStatus;
- var childcount, childix : integer;
+ var childix : integer;
      child : TBehaviorNode;
  begin
-   childcount := length( children );
    if not runner.datastack.peekint( childix ) then
       runner.datastack.pushint( childix ); { push childix to the stack if it wasn't there }
    {$ifdef dbgBehavior}
@@ -313,6 +341,7 @@ function TBehaviorComposite.incchildindex( runner : TBehaviorRunner ) : boolean;
    if result then
       runner.datastack.pushint(childix); { add child ix back to stack }
  end;
+
 
 //--------------------------------
 
@@ -352,11 +381,9 @@ function TBehaviorSequence.processchildstatus( runner : TBehaviorRunner;
 function TBehaviorSequence.Tick( runner : TBehaviorRunner;
                                  secondspassed : single ) : TBehaviorStatus;
  { will run one child per tick, finished with first child that is a fail }
- var childcount : integer;
-     childix : integer;
+ var childix : integer;
  begin
    inherited; { debug output if needed }
-   childcount := length( children );
    runner.datastack.peekint( childix ); { peek for childix on stack, will be 0 if none }
    assert( childix < childcount );
    result := RunNextChild( runner, secondspassed );
@@ -420,11 +447,9 @@ function TBehaviorSelector.processchildstatus( runner : TBehaviorRunner;
 function TBehaviorSelector.Tick( runner : TBehaviorRunner;
                                  secondspassed : single ) : TBehaviorStatus;
 { will run one child per tick, finished with first child that is a success }
- var childcount : integer;
-     childix : integer;
+ var childix : integer;
  begin
    inherited; { debug output if needed }
-   childcount := length( children );
    runner.datastack.peekint( childix ); { peek for childix on stack, will be 0 if none }
    assert( childix < childcount );
    result := RunNextChild( runner, secondspassed );
@@ -585,6 +610,129 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
          activenode := TBehaviorNode( DataStack.pop ); { set active node to prior node in stack after success or fail }
     end;
  end;
+
+//-----------------------------
+// Flat Tree Iterator.
+// should be able to replace the oops based recursive iteration
+
+procedure treecallback( node : TBehaviorNode;
+                        data : pointer );
+ begin
+   writeln( node.classname + ':' + node.name );
+ end;
+
+type titnodefunc = function( var node : TBehaviorNode ) : boolean of object;
+
+type TTreeIterator = class
+        stack : TBehaviorDataStack;
+        callback : ttreecallback;
+        data : pointer;
+        depth : integer;
+        constructor create( icallback : ttreecallback;
+                            idata : pointer );
+        destructor destroy; override;
+        procedure iterate( rootnode : TBehaviorNode );
+        private
+        itnodefuncs : array[0..2] of titnodefunc;
+        function _doleaf( var node : TBehaviorNode ) : boolean;
+        function _dodecorator( var node : TBehaviorNode ) : boolean;
+        function _docomposite( var node : TBehaviorNode ) : boolean;
+      end;
+
+   constructor TTreeIterator.create( icallback : ttreecallback;
+                                     idata : pointer );
+    begin
+      stack := TBehaviorDataStack.create;
+      callback := icallback;
+      data := idata;
+      depth := 0;
+      itnodefuncs[0] := @_doleaf;
+      itnodefuncs[1] := @_dodecorator;
+      itnodefuncs[2] := @_docomposite;
+    end;
+
+   destructor TTreeIterator.destroy;
+    begin
+      stack.free;
+    end;
+
+  function TTreeIterator._doleaf( var node : TBehaviorNode ) : boolean;
+   begin
+     callback( node, data );
+     result := true;
+   end;
+
+   function TTreeIterator._dodecorator( var node : TBehaviorNode ) : boolean;
+    var childix : integer;
+    begin
+      if stack.peekint(childix) then
+         stack.popint;
+      result := childix = 1;
+      if not result then
+       begin
+         inc( depth );
+         callback( node, data );
+         stack.pushint(1);
+         stack.push( node );
+         node := TBehaviorDecorator( node ).child;
+       end
+    end;
+
+   function TTreeIterator._docomposite( var node : TBehaviorNode ) : boolean;
+    var c, childix : integer;
+    begin
+      if stack.peekint(childix) then
+         stack.popint
+      else
+         callback( node, data );
+      c := node.childcount;
+      result := childix = c;
+      if not result then
+       begin
+         inc( depth );
+         stack.pushint( childix + 1 );
+         stack.push( node );
+         node := TBehaviorComposite( node ).children[childix];
+       end
+    end;
+
+   procedure limitmax( var value : integer;
+                           max   : integer);
+    var limit : boolean;
+    begin
+      limit := value > max;
+      value := ord( not limit ) * value + ord( limit ) * max;
+    end;
+
+   procedure TTreeIterator.iterate( rootnode : TBehaviorNode );
+    var currentnode : TBehaviorNode;
+        c: integer;
+        finished : boolean;
+    begin
+      currentnode := rootnode;
+      while assigned( currentnode ) do
+       begin
+         c := currentnode.childcount;
+         limitmax( c, 2 );
+         finished := itnodefuncs[c]( currentnode );
+         if finished then
+          begin
+            dec( depth );
+            currentnode := TBehaviorNode( stack.pop );
+          end;
+       end;
+    end;
+
+procedure iteratetree( rootnode : TBehaviorNode;
+                       callback : ttreecallback;
+                       data : pointer );
+ var iterator : TTreeIterator;
+ begin
+   iterator := TTreeIterator.create( callback, data );
+   iterator.iterate( rootnode );
+   iterator.free;
+ end;
+
 
 initialization
   {$ifdef dbgBehavior}
