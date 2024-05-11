@@ -106,6 +106,9 @@ type TBehaviorStatus = integer;
     { RetryUntilSuccessful }
     { KeepRunningUntilFailure }
     { Delay }
+    { MaxNTries }
+    { MaxTSecs }
+
     { https://www.behaviortree.dev/docs/nodes-library/decoratornode/ }
 
 { composite nodes }
@@ -257,7 +260,8 @@ function TBehaviorComposite.RunNextChild( runner : TBehaviorRunner;
 function TBehaviorComposite.incchildindex( runner : TBehaviorRunner ) : boolean;
  var childix : integer;
  begin
-   childix := runner.datastack.popint;
+   if runner.datastack.peekint( childix ) then
+      runner.datastack.popint;
    inc( childix );
    result := childix < length( children );
    if result then
@@ -268,6 +272,7 @@ function TBehaviorComposite.incchildindex( runner : TBehaviorRunner ) : boolean;
 
 function TBehaviorSequence.processchildstatus( runner : TBehaviorRunner;
                                                childstatus : TBehaviorStatus ) : TBehaviorStatus;
+ var dummy : integer;
  begin
    result := childstatus;
    case childstatus of
@@ -277,7 +282,8 @@ function TBehaviorSequence.processchildstatus( runner : TBehaviorRunner;
                           { else finished with success }
                          end;
       behavior_fail : begin
-                        runner.datastack.popint; { finished with fail }
+                        if runner.datastack.peekint( dummy ) then
+                           runner.datastack.popint; { finished with fail }
                       end;
       behavior_running : begin
                         { running will continue waiting for child, success will halt iteration with success }
@@ -309,10 +315,14 @@ function TBehaviorSequence.description : string;
 
 function TBehaviorSelector.processchildstatus( runner : TBehaviorRunner;
                                                childstatus : TBehaviorStatus ) : TBehaviorStatus;
+ var dummy : integer;
  begin
    result := childstatus;
    case childstatus of
-      behavior_success : runner.datastack.popint; { finished with success }
+      behavior_success : begin
+                           if runner.datastack.peekint( dummy ) then
+                              runner.datastack.popint; { finished with success }
+                         end;
       behavior_fail : begin
                           if incchildindex( runner ) then
                              result := behavior_running;
@@ -430,7 +440,7 @@ procedure TBehaviorRunner.StackActiveNode( NewActiveNode : TBehaviorNode );
 function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
  begin
    {$ifdef dbgBehavior}
-   write( '>-Tick'+IntToStr( tickcount )+':');
+   write( ':Tick'+IntToStr( tickcount )+':');
    inc( tickcount );
    {$endif }
    if not assigned( activenode ) then
@@ -451,7 +461,7 @@ function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
     end
    else
     begin
-      assert( datastack.pop = nil );    { stack should be clear when finished }
+      assert( datastack.IsEmpty );    { stack should be clear when finished }
       {$ifdef dgbBehavior}write('.');{$endif}
     end;
    {$ifdef dbgBehavior}writeln( '' );{$endif}
@@ -473,7 +483,10 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
       assert( not DataStack.peekint( dum1 ));
       assert( not DataStack.peeksingle( dum2 ));
       {!!! how can this be invalid typecast after the above assertions?}
-      activenode := TBehaviorNode( DataStack.pop ); { set active node to prior node in stack after success or fail }
+      if DataStack.IsEmpty then
+         activenode := nil
+      else
+         activenode := TBehaviorNode( DataStack.pop ); { set active node to prior node in stack after success or fail }
     end;
  end;
 

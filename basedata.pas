@@ -150,7 +150,7 @@ function TBehaviorDataStack.Pop : tobject;
 
 function TBehaviorDataStack.IsEmpty : boolean;
  begin
-   result := length( stack ) > 0;
+   result := length( stack ) = 0;
  end;
 
 procedure TBehaviorDataStack.pushint( i : integer );
