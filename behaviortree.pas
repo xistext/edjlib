@@ -53,7 +53,6 @@ type TBehaviorStatus = integer;
        { non core functionality }
        function childcount : integer; dynamic;
        function description : string; dynamic;
-       function getxml( indent : integer = 0 ) : string; dynamic; abstract;
 
      end;
 
@@ -64,7 +63,6 @@ type TBehaviorStatus = integer;
                            iname : string = '' );
        { non core functionality }
        function childcount : integer; override;
-       function getxml( indent : integer = 0 ) : string; override;
      end;
 
     { multichild behavior node.  how those children are processed depends on subclasses }
@@ -88,7 +86,6 @@ type TBehaviorStatus = integer;
 
     { sublass this to make checks and actions in overloaded Run methods }
     TBehaviorLeaf = class( TBehaviorNode )
-       function getxml( indent : integer = 0 ) : string; override;
      end;
 
 { decorators }
@@ -136,7 +133,6 @@ type TBehaviorStatus = integer;
        function processchildstatus( runner : TBehaviorRunner;
                                     childstatus : TBehaviorStatus ) : TBehaviorStatus; override;
        function description : string; override;
-       function getxml( indent : integer = 0 ) : string; override;
      end;
 
     { Selector : Unlike sequence which is AND, requiring all children to succeed to
@@ -154,7 +150,6 @@ type TBehaviorStatus = integer;
        function processchildstatus( runner : TBehaviorRunner;
                                     childstatus : TBehaviorStatus ) : TBehaviorStatus; override;
        function description : string; override;
-       function getxml( indent : integer = 0 ) : string; override;
      end;
 
 { keep track of active behavior node and other info (in subclass) }
@@ -226,14 +221,6 @@ function TBehaviorNode.Tick( runner : TBehaviorRunner;
   {$endif}
  end;
 
-function TBehaviorLeaf.getxml( indent : integer = 0 ) : string;
- var indentstring : string;
- begin
-   setlength( indentstring, indent );
-   fillchar( pchar( indentstring )^, indent, ' ' );
-   result := indentstring + format( '<%s name="%s"/>', [ClassName,name] )+#13#10;
- end;
-
 //---------------------------------
 
 constructor TBehaviorDecorator.create( ichild : TBehaviorNode;
@@ -247,16 +234,6 @@ constructor TBehaviorDecorator.create( ichild : TBehaviorNode;
 function TBehaviorDecorator.childcount : integer;
  begin
    result := 1;
- end;
-
-function TBehaviorDecorator.getxml( indent : integer = 0 ) : string;
- var indentstring : string;
- begin
-   setlength( indentstring, indent );
-   fillchar( pchar( indentstring )^, indent, ' ' );
-   result := indentstring + format( '<%s name="%s">', [ClassName,name] )+#13#10;
-   result := result + child.getxml( indent + xmlindent );
-   result := result + indentstring + format( '</%s>', [ClassName] )+#13#10;
  end;
 
 //--------------------------------
@@ -396,20 +373,6 @@ function TBehaviorSequence.description : string;
    result := inherited + '-' + char(16);
  end;
 
-function TBehaviorSequence.getxml( indent : integer ) : string;
- var indentstring : string;
-     i : integer;
- const tagname = 'Sequence';
- begin
-   setlength( indentstring, indent );
-   fillchar( pchar( indentstring )^, indent, ' ' );
-   Result := indentstring+format('<%s name="%s">', [tagname,name])+#13#10;
-   inc( indent, 3 );
-   for i := 0 to length( children ) - 1 do
-      result := result + children[i].getxml( indent );
-   Result := Result + indentstring+format('</%s>', [tagname])+#13#10;
- end;
-
 //--------------------------------
 
   function _selectorsuccess( selector : TBehaviorSelector;
@@ -460,20 +423,6 @@ function TBehaviorSelector.Tick( runner : TBehaviorRunner;
 function TBehaviorSelector.description : string;
  begin
    result := inherited + '-?';
- end;
-
-function TBehaviorSelector.getxml( indent : integer ) : string;
- var indentstring : string;
-     i : integer;
- const tagname = 'Fallback';
- begin
-   setlength( indentstring, indent );
-   fillchar( pchar( indentstring )^, indent, ' ' );
-   Result := indentstring+format('<%s name="%s">', [tagname,name])+#13#10;
-   inc( indent, 3 );
-   for i := 0 to length( children ) - 1 do
-      result := result + children[i].getxml( indent );
-   Result := Result + indentstring+format('</%s>', [tagname])+#13#10;
  end;
 
 //------------------------------------
@@ -618,21 +567,24 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
 procedure treecallback( node : TBehaviorNode;
                         data : pointer );
  begin
+   {$ifdef dbgHeavior }
    writeln( node.classname + ':' + node.name );
+   {$endif}
  end;
 
 type titnodefunc = function( var node : TBehaviorNode ) : boolean of object;
 
 type TTreeIterator = class
-        stack : TBehaviorDataStack;
-        callback : ttreecallback;
-        data : pointer;
-        depth : integer;
         constructor create( icallback : ttreecallback;
                             idata : pointer );
         destructor destroy; override;
         procedure iterate( rootnode : TBehaviorNode );
+        protected
+        stack : TBehaviorDataStack;
+        depth : integer;
         private
+        callback : ttreecallback;
+        data : pointer;
         itnodefuncs : array[0..2] of titnodefunc;
         function _doleaf( var node : TBehaviorNode ) : boolean;
         function _dodecorator( var node : TBehaviorNode ) : boolean;
@@ -696,27 +648,22 @@ type TTreeIterator = class
        end
     end;
 
-   procedure limitmax( var value : integer;
-                           max   : integer);
-    var limit : boolean;
-    begin
-      limit := value > max;
-      value := ord( not limit ) * value + ord( limit ) * max;
-    end;
+     function limitmax( value : integer;
+                        max   : integer) : integer;
+      var limit : boolean;
+      begin
+        limit := value > max;
+        result := ord( not limit ) * value + ord( limit ) * max;
+      end;
 
    procedure TTreeIterator.iterate( rootnode : TBehaviorNode );
     var currentnode : TBehaviorNode;
-        c: integer;
-        finished : boolean;
     begin
       currentnode := rootnode;
       while assigned( currentnode ) do
        begin
-         c := currentnode.childcount;
-         limitmax( c, 2 );
-         finished := itnodefuncs[c]( currentnode );
-         if finished then
-          begin
+         if itnodefuncs[limitmax( currentnode.childcount, 2 )]( currentnode ) then
+          begin { finished }
             dec( depth );
             currentnode := TBehaviorNode( stack.pop );
           end;
