@@ -166,10 +166,12 @@ TBehaviorRunner = class
  end;
 
 type ttreecallback = procedure( node : TBehaviorNode;
-                                data : pointer );
+                                data : pointer;
+                                indent : integer );
 
 procedure treecallback( node : TBehaviorNode;
-                        data : pointer );
+                        data : pointer;
+                        indent : integer );
 procedure iteratetree( rootnode : TBehaviorNode;
                        callback : ttreecallback;
                        data : pointer );
@@ -565,7 +567,8 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
 // should be able to replace the oops based recursive iteration
 
 procedure treecallback( node : TBehaviorNode;
-                        data : pointer );
+                        data : pointer;
+                        indent : integer );
  begin
    {$ifdef dbgHeavior }
    writeln( node.classname + ':' + node.name );
@@ -610,7 +613,7 @@ type TTreeIterator = class
 
   function TTreeIterator._doleaf( var node : TBehaviorNode ) : boolean;
    begin
-     callback( node, data );
+     callback( node, data, depth );
      result := true;
    end;
 
@@ -622,8 +625,8 @@ type TTreeIterator = class
       result := childix = 1;
       if not result then
        begin
-         inc( depth );
-         callback( node, data );
+         callback( node, data, depth  );
+         inc( depth, 1 );
          stack.pushint(1);
          stack.push( node );
          node := TBehaviorDecorator( node ).child;
@@ -636,7 +639,7 @@ type TTreeIterator = class
       if stack.peekint(childix) then
          stack.popint
       else
-         callback( node, data );
+         callback( node, data, depth );
       c := node.childcount;
       result := childix = c;
       if not result then
