@@ -43,10 +43,14 @@ type TBehaviorStatus = integer;
      { manages the running, data and active state of a behavior tree }
      TBehaviorRunner = class; { forward }
 
+     TBehaviorNotification = procedure( behaviornode : TBehaviorNode;
+                                        status       : TBehaviorStatus );
+
      { root behavior tree class that everything derives from }
      TBehaviorNode = class
 
        name : string;
+
        constructor create( iname : string = '' );
        function Tick( runner : TBehaviorRunner;
                       secondspassed : single ) : TBehaviorStatus; virtual;
@@ -157,6 +161,7 @@ TBehaviorRunner = class
    RootNode   : TBehaviorNode;
    ActiveNode : TBehaviorNode;
    DataStack  : TBehaviorDataStack;
+   NotificationCallback : TBehaviorNotification;
    constructor create( iRootNode : TBehaviorNode );
    destructor destroy; override;
    procedure StackActiveNode( NewActiveNode : TBehaviorNode );
@@ -181,6 +186,9 @@ function SuccessOrFail( condition : boolean ) : TBehaviorStatus;
 function SuccessOrRunning( condition : boolean ) : TBehaviorStatus;
 function FailOrRunning( condition : boolean ) : TBehaviorStatus;
 
+procedure NullNotification( behaviornode : TBehaviorNode;
+                            status       : TBehaviorStatus );
+
 implementation  //==============================================================
 
 function SuccessOrFail( condition : boolean ) : TBehaviorStatus;
@@ -198,6 +206,12 @@ end;
 function FailOrRunning( condition : boolean ) : TBehaviorStatus;
  begin
    result := ord( condition ) * behavior_fail + ord( not condition ) * behavior_running;
+ end;
+
+
+procedure NullNotification( behaviornode : TBehaviorNode;
+                            status       : TBehaviorStatus );
+ begin
  end;
 
 constructor TBehaviorNode.create( iname : string = '');
@@ -218,6 +232,8 @@ function TBehaviorNode.childcount : integer;
 function TBehaviorNode.Tick( runner : TBehaviorRunner;
                              secondspassed : single ) : TBehaviorStatus;
  begin
+   result := behavior_running;
+   runner.NotificationCallback( self, result );
   {$ifdef dbgBehavior}
   write( description + '(' );
   {$endif}
@@ -493,6 +509,7 @@ constructor TBehaviorRunner.create( iRootNode : TBehaviorNode );
    ActiveNode := RootNode;
    { owned datastack of unowned references to externally owned nodes }
    DataStack := TBehaviorDataStack.create;
+   NotificationCallback := @NullNotification;
  end;
 
 destructor TBehaviorRunner.destroy;
@@ -547,6 +564,7 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
  var dum1 : integer;
      dum2 : single;
  begin
+   NotificationCallback( activenode, istatus );
    {$ifdef dbgBehavior}
    write( resultstrings[istatus] );
    {$endif}
