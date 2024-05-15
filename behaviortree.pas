@@ -219,11 +219,12 @@ function FailOrRunning( condition : boolean ) : TBehaviorStatus;
    result := ord( condition ) * behavior_fail + ord( not condition ) * behavior_running;
  end;
 
-
 procedure NullNotification( behaviornode : TBehaviorNode;
                             status       : TBehaviorStatus );
  begin
  end;
+
+//---------------------------
 
 constructor TBehaviorNode.create( iname : string = '');
  begin
@@ -254,7 +255,6 @@ function TBehaviorNode.Tick( runner : TBehaviorRunner;
   write( description + '(' );
   {$endif}
  end;
-
 
 class function TBehaviorLeaf.behaviorclass : string;
  begin
@@ -359,7 +359,6 @@ function TBehaviorComposite.incchildindex( runner : TBehaviorRunner ) : boolean;
       runner.datastack.pushint(childix); { add child ix back to stack }
  end;
 
-
 //--------------------------------
 
   function _sequencesuccess( sequence : TBehaviorSequence;
@@ -417,7 +416,6 @@ class function TBehaviorSequence.behaviorclass : string;
  begin
    result := 'Sequence';
  end;
-
 
 //--------------------------------
 
@@ -498,7 +496,7 @@ function TBehavior_ForceSuccess.description : string;
 
 class function TBehavior_ForceSuccess.behaviorclass : string;
  begin
-   result := 'Force Succees';
+   result := 'Force Success';
  end;
 
 function TBehavior_ForceFail.Tick( runner : TBehaviorRunner;
@@ -541,7 +539,7 @@ function TBehavior_Inverter.Tick( runner : TBehaviorRunner;
 
 function TBehavior_Inverter.description : string;
  begin
-   result := 'Invert'
+   result := behaviorclass;
  end;
 
 class function TBehavior_Inverter.behaviorclass : string;
