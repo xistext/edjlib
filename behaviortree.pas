@@ -58,6 +58,8 @@ type TBehaviorStatus = integer;
        function childcount : integer; dynamic;
        function description : string; dynamic;
 
+       class function behaviorclass : string; dynamic;
+
      end;
 
     { single child behavior node that can modify the results of that child in subclasses }
@@ -90,6 +92,7 @@ type TBehaviorStatus = integer;
 
     { sublass this to make checks and actions in overloaded Run methods }
     TBehaviorLeaf = class( TBehaviorNode )
+       class function behaviorclass : string; override;
      end;
 
 { decorators }
@@ -99,18 +102,22 @@ type TBehaviorStatus = integer;
        function Tick( runner : TBehaviorRunner;
                       secondspassed : single ) : TBehaviorStatus; override;
        function description : string; override;
+       class function behaviorclass : string; override;
+
      end;
     {regardless if child is done running returns success regardless of childsuccess }
     TBehavior_ForceFail  = class( TBehaviorDecorator )
        function Tick( runner : TBehaviorRunner;
                       secondspassed : single ) : TBehaviorStatus; override;
        function description : string; override;
+       class function behaviorclass : string; override;
      end;
     {inverts child results if not running }
     TBehavior_Inverter  = class( TBehaviorDecorator )
        function Tick( runner : TBehaviorRunner;
                      secondspassed : single ) : TBehaviorStatus; override;
        function description : string; override;
+       class function behaviorclass : string; override;
      end;
 
     { others to implement... }
@@ -137,6 +144,7 @@ type TBehaviorStatus = integer;
        function processchildstatus( runner : TBehaviorRunner;
                                     childstatus : TBehaviorStatus ) : TBehaviorStatus; override;
        function description : string; override;
+       class function behaviorclass : string; override;
      end;
 
     { Selector : Unlike sequence which is AND, requiring all children to succeed to
@@ -154,6 +162,7 @@ type TBehaviorStatus = integer;
        function processchildstatus( runner : TBehaviorRunner;
                                     childstatus : TBehaviorStatus ) : TBehaviorStatus; override;
        function description : string; override;
+       class function behaviorclass : string; override;
      end;
 
 { keep track of active behavior node and other info (in subclass) }
@@ -171,10 +180,12 @@ TBehaviorRunner = class
  end;
 
 type ttreecallback = procedure( node : TBehaviorNode;
+                                parent : TBehaviorNode;
                                 data : pointer;
                                 indent : integer );
 
 procedure treecallback( node : TBehaviorNode;
+                        parent : TBehaviorNode;
                         data : pointer;
                         indent : integer );
 procedure iteratetree( rootnode : TBehaviorNode;
@@ -224,6 +235,11 @@ function TBehaviorNode.description : string;
    result := name;
  end;
 
+class function TBehaviorNode.behaviorclass : string;
+ begin
+   result := 'BehaviorNode';
+ end;
+
 function TBehaviorNode.childcount : integer;
  begin
    result := 0;
@@ -237,6 +253,12 @@ function TBehaviorNode.Tick( runner : TBehaviorRunner;
   {$ifdef dbgBehavior}
   write( description + '(' );
   {$endif}
+ end;
+
+
+class function TBehaviorLeaf.behaviorclass : string;
+ begin
+   result := 'BehaviorLeaf';
  end;
 
 //---------------------------------
@@ -391,6 +413,12 @@ function TBehaviorSequence.description : string;
    result := inherited + '-' + char(16);
  end;
 
+class function TBehaviorSequence.behaviorclass : string;
+ begin
+   result := 'Sequence';
+ end;
+
+
 //--------------------------------
 
   function _selectorsuccess( selector : TBehaviorSelector;
@@ -443,6 +471,11 @@ function TBehaviorSelector.description : string;
    result := inherited + '-?';
  end;
 
+class function TBehaviorSelector.behaviorclass : string;
+ begin
+   result := 'Selector';
+ end;
+
 //------------------------------------
 { decorators }
 
@@ -463,6 +496,11 @@ function TBehavior_ForceSuccess.description : string;
    result := 'ForceSuccess'
  end;
 
+class function TBehavior_ForceSuccess.behaviorclass : string;
+ begin
+   result := 'Force Succees';
+ end;
+
 function TBehavior_ForceFail.Tick( runner : TBehaviorRunner;
                                    secondspassed : single ) : TBehaviorStatus;
  { regardless if child is done running returns success regardless of childsuccess }
@@ -479,6 +517,12 @@ function TBehavior_ForceFail.description : string;
  begin
    result := 'ForceFail'
  end;
+
+class function TBehavior_ForceFail.behaviorclass : string;
+ begin
+   result := 'Force Fail';
+ end;
+
 
 function TBehavior_Inverter.Tick( runner : TBehaviorRunner;
                                   secondspassed : single ) : TBehaviorStatus;
@@ -499,6 +543,12 @@ function TBehavior_Inverter.description : string;
  begin
    result := 'Invert'
  end;
+
+class function TBehavior_Inverter.behaviorclass : string;
+ begin
+   result := 'Invert';
+ end;
+
 
 //------------------------------------
 
@@ -584,7 +634,8 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
 // Flat Tree Iterator.
 // should be able to replace the oops based recursive iteration
 
-procedure treecallback( node : TBehaviorNode;
+procedure treecallback( node   : TBehaviorNode;
+                        parent : TBehaviorNode;
                         data : pointer;
                         indent : integer );
  begin
@@ -630,20 +681,24 @@ type TTreeIterator = class
     end;
 
   function TTreeIterator._doleaf( var node : TBehaviorNode ) : boolean;
+   var parent : TObject;
    begin
-     callback( node, data, depth );
+     stack.peekitem(parent);
+     callback( node, TBehaviorNode( parent ), data, depth );
      result := true;
    end;
 
    function TTreeIterator._dodecorator( var node : TBehaviorNode ) : boolean;
     var childix : integer;
+        parent : TObject;
     begin
       if stack.peekint(childix) then
          stack.popint;
       result := childix = 1;
       if not result then
        begin
-         callback( node, data, depth  );
+         stack.peekitem(parent);
+         callback( node, TBehaviorNode( parent ), data, depth  );
          inc( depth, 1 );
          stack.pushint(1);
          stack.push( node );
@@ -653,11 +708,15 @@ type TTreeIterator = class
 
    function TTreeIterator._docomposite( var node : TBehaviorNode ) : boolean;
     var c, childix : integer;
+        parent : TObject;
     begin
       if stack.peekint(childix) then
          stack.popint
       else
-         callback( node, data, depth );
+       begin
+         stack.peekitem( parent );
+         callback( node, TBehaviorNode( parent ), data, depth ); { callback on first pass }
+       end;
       c := node.childcount;
       result := childix = c;
       if not result then
@@ -700,7 +759,6 @@ procedure iteratetree( rootnode : TBehaviorNode;
    iterator.iterate( rootnode );
    iterator.free;
  end;
-
 
 initialization
   {$ifdef dbgBehavior}

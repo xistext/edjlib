@@ -46,6 +46,8 @@ TBehaviorDataStack = class { for storing data }
     function popsingle : single;
     function peeksingle( var s: single ) : boolean; { look at what would have popped without popping }
 
+    function peekitem( var it : tobject ) : boolean;
+
     private
     stack : array of tobject;
   end;
@@ -169,6 +171,22 @@ function TBehaviorDataStack.peeksingle( var s : single ) : boolean;  { look at w
      end;
  end;
 
+function TBehaviorDataStack.peekitem( var it : tobject ) : boolean;
+ var l : integer;
+     item : tobject;
+ begin
+    it := nil;
+    l := length( stack );
+    result := l > 0;
+    if result then
+     begin
+       dec( l );
+       item := stack[l];
+       result := not ( it is TBehaviorData );
+       if result then
+          it := item;
+     end;
+ end;
 
 end.
 
