@@ -34,7 +34,6 @@ const behavior_notrun  = 0; { not used }
       {$ifdef dbgbehavior}
       tickcount : integer = 0;
       {$endif}
-      xmlindent : integer = 3;
 
 type TBehaviorStatus = integer;
 
@@ -54,7 +53,6 @@ type TBehaviorStatus = integer;
        constructor create( iname : string = '' );
        function Tick( runner : TBehaviorRunner;
                       secondspassed : single ) : TBehaviorStatus; virtual;
-       { non core functionality }
        function childcount : integer; dynamic;
        function description : string; dynamic;
 
@@ -92,6 +90,7 @@ type TBehaviorStatus = integer;
 
     { sublass this to make checks and actions in overloaded Run methods }
     TBehaviorLeaf = class( TBehaviorNode )
+       function description : string; override;
        class function behaviorclass : string; override;
      end;
 
@@ -254,6 +253,13 @@ function TBehaviorNode.Tick( runner : TBehaviorRunner;
   {$ifdef dbgBehavior}
   write( description + '(' );
   {$endif}
+ end;
+
+//---------------------------------
+
+function TBehaviorLeaf.description : string;
+ begin
+   result := behaviorclass;
  end;
 
 class function TBehaviorLeaf.behaviorclass : string;
@@ -491,7 +497,7 @@ function TBehavior_ForceSuccess.Tick( runner : TBehaviorRunner;
 
 function TBehavior_ForceSuccess.description : string;
  begin
-   result := 'ForceSuccess'
+   result := 'Force Success'
  end;
 
 class function TBehavior_ForceSuccess.behaviorclass : string;
@@ -513,7 +519,7 @@ function TBehavior_ForceFail.Tick( runner : TBehaviorRunner;
 
 function TBehavior_ForceFail.description : string;
  begin
-   result := 'ForceFail'
+   result := 'Force Fail'
  end;
 
 class function TBehavior_ForceFail.behaviorclass : string;
