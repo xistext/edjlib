@@ -94,6 +94,18 @@ type TBehaviorStatus = integer;
        class function behaviorclass : string; override;
      end;
 
+    TBehaviorSucceed = class( TBehaviorLeaf )
+       function Tick( runner : TBehaviorRunner;
+                      secondspassed : single ) : TBehaviorStatus; override;
+       class function behaviorclass : string; override;
+     end;
+
+    TBehaviorFail = class( TBehaviorLeaf )
+       function Tick( runner : TBehaviorRunner;
+                      secondspassed : single ) : TBehaviorStatus; override;
+       class function behaviorclass : string; override;
+     end;
+
 { decorators }
 
     {regardless if child is done running returns success regardless of childsuccess }
@@ -265,6 +277,32 @@ function TBehaviorLeaf.description : string;
 class function TBehaviorLeaf.behaviorclass : string;
  begin
    result := 'BehaviorLeaf';
+ end;
+
+//---------------------------------
+
+function TBehaviorSucceed.Tick( runner : TBehaviorRunner;
+                                secondspassed : single ) : TBehaviorStatus;
+ begin
+   inherited;
+   result := behavior_success;
+ end;
+
+class function TBehaviorSucceed.behaviorclass : string;
+ begin
+   result := 'Succeed';
+ end;
+
+function TBehaviorFail.Tick( runner : TBehaviorRunner;
+                             secondspassed : single ) : TBehaviorStatus;
+ begin
+   inherited;
+   result := behavior_fail;
+ end;
+
+class function TBehaviorFail.behaviorclass : string;
+ begin
+   result := 'Fail';
  end;
 
 //---------------------------------
