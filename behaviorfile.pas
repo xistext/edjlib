@@ -41,7 +41,7 @@ function writeBehaviorTreeToFile( BehaviorTree : TBehaviorNode;
  var Writer : TTextWriter;
  begin
    Writer := TTextWriter.create( fName );
-   Writer.Writeln( 'Tree(''%s'')', [TreeName] );
+   Writer.Writeln( 'tree "%s"', [TreeName] );
    iteratetree( BehaviorTree, @writecallback, Writer );
    Writer.free;
  end;
