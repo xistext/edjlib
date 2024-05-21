@@ -49,6 +49,7 @@ type TBehaviorStatus = integer;
      TBehaviorNode = class
 
        name : string;
+       comment : string;
 
        constructor create( iname : string = '' );
        function Tick( runner : TBehaviorRunner;
@@ -106,6 +107,18 @@ type TBehaviorStatus = integer;
        class function behaviorclass : string; override;
      end;
 
+    TBehaviorRunning  = class( TBehaviorLeaf ) { running indefinitely }
+       function Tick( runner : TBehaviorRunner;
+                      secondspassed : single ) : TBehaviorStatus; override;
+       class function behaviorclass : string; override;
+     end;
+
+     (*
+     void Wait (float duration)	Run for duration seconds then succeed.
+     void Wait (int ticks)	Run for ticks ticks then succeed.
+     void RealtimeWait (float duration)	Run for duration unscaled seconds then succeed.
+       *)
+
 { decorators }
 
     {regardless if child is done running returns success regardless of childsuccess }
@@ -124,7 +137,7 @@ type TBehaviorStatus = integer;
        class function behaviorclass : string; override;
      end;
     {inverts child results if not running }
-    TBehavior_Inverter  = class( TBehaviorDecorator )
+    TBehavior_Not  = class( TBehaviorDecorator ) { Not }
        function Tick( runner : TBehaviorRunner;
                      secondspassed : single ) : TBehaviorStatus; override;
        function description : string; override;
@@ -303,6 +316,20 @@ function TBehaviorFail.Tick( runner : TBehaviorRunner;
 class function TBehaviorFail.behaviorclass : string;
  begin
    result := 'Fail';
+ end;
+
+//---------------------------------
+
+function TBehaviorRunning.Tick( runner : TBehaviorRunner;
+                                secondspassed : single ) : TBehaviorStatus;
+ begin
+   inherited;
+   result := behavior_running;
+ end;
+
+class function TBehaviorRunning.behaviorclass : string;
+ begin
+   result := 'Running';
  end;
 
 //---------------------------------
@@ -535,12 +562,12 @@ function TBehavior_ForceSuccess.Tick( runner : TBehaviorRunner;
 
 function TBehavior_ForceSuccess.description : string;
  begin
-   result := 'Force Success'
+   result := behaviorclass;
  end;
 
 class function TBehavior_ForceSuccess.behaviorclass : string;
  begin
-   result := 'Force Success';
+   result := 'Succeed';
  end;
 
 function TBehavior_ForceFail.Tick( runner : TBehaviorRunner;
@@ -557,17 +584,17 @@ function TBehavior_ForceFail.Tick( runner : TBehaviorRunner;
 
 function TBehavior_ForceFail.description : string;
  begin
-   result := 'Force Fail'
+   result := behaviorclass;
  end;
 
 class function TBehavior_ForceFail.behaviorclass : string;
  begin
-   result := 'Force Fail';
+   result := 'Fail';
  end;
 
 
-function TBehavior_Inverter.Tick( runner : TBehaviorRunner;
-                                  secondspassed : single ) : TBehaviorStatus;
+function TBehavior_Not.Tick( runner : TBehaviorRunner;
+                             secondspassed : single ) : TBehaviorStatus;
  { inverts child results if not running }
  begin
    inherited; { debug output if needed }
@@ -581,16 +608,15 @@ function TBehavior_Inverter.Tick( runner : TBehaviorRunner;
    runner.UpdateActiveRunStatus( result );
  end;
 
-function TBehavior_Inverter.description : string;
+function TBehavior_Not.description : string;
  begin
    result := behaviorclass;
  end;
 
-class function TBehavior_Inverter.behaviorclass : string;
+class function TBehavior_Not.behaviorclass : string;
  begin
-   result := 'Invert';
+   result := 'Not';
  end;
-
 
 //------------------------------------
 

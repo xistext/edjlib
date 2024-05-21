@@ -16,10 +16,12 @@ type TBehaviorLeafClass = class of TBehaviorLeaf;
 procedure RegisterBehaviorLeaf( iBehaviorLeaf : TBehaviorLeafClass );
 function BehaviorLeafRegisterCount : integer;
 function BehaviorLeafRegisterClassAt( i : integer ) : string;
+function CreateBehaviorLeaf( iClassName : string ) : TBehaviorLeaf;
 
 procedure RegisterBehaviorDecorator( iBehaviorDecorator : TBehaviorDecoratorClass );
 function BehaviorDecoratorRegisterCount : integer;
 function BehaviorDecoratorRegisterClassAt( i : integer ) : string;
+function CreateBehaviorDecorator( iClassName : string ) : TBehaviorDecorator;
 
 implementation
 
@@ -54,6 +56,25 @@ function BehaviorLeafRegisterClassAt( i : integer ) : string;
    result := TBehaviorLeafClass( BehaviorLeafList.at( i )).behaviorclass;
  end;
 
+function CreateBehaviorLeaf( iClassName : string ) : TBehaviorLeaf;
+ var i : integer;
+     aclass : TBehaviorLeafClass;
+ begin
+   result := nil;
+   {! brute force since key is whole class}
+   for i := 0 to BehaviorLeafList.count - 1 do
+    begin
+      aclass := TBehaviorLeafClass( BehaviorLeafList.at(i) );
+      if aclass.BehaviorClass = iClassName then
+       begin
+         result := aclass.create;
+         exit;
+       end;
+    end;
+ end;
+
+
+//------------------------------
 
 procedure RegisterBehaviorDecorator( iBehaviorDecorator : TBehaviorDecoratorClass );
  begin
@@ -71,17 +92,35 @@ begin
   result := TBehaviorDecoratorClass( BehaviorDecoratorList.at( i )).behaviorclass;
 end;
 
+function CreateBehaviorDecorator( iClassName : string ) : TBehaviorDecorator;
+ var i : integer;
+     aclass : TBehaviorDecoratorClass;
+ begin
+   result := nil;
+   {! brute force since key is whole class}
+   for i := 0 to BehaviorDecoratorList.count - 1 do
+    begin
+      aclass := TBehaviorDecoratorClass( BehaviorDecoratorList.at(i) );
+      if aclass.BehaviorClass = iClassName then
+       begin
+         result := aclass.create(nil);
+         exit;
+       end;
+    end;
+ end;
 
-initialization
+
+initialization  //==============================================================
   BehaviorLeafList := TBehaviorList.create;
   BehaviorLeafList.ownitems := false;
   RegisterBehaviorLeaf( TBehaviorSucceed );
   RegisterBehaviorLeaf( TBehaviorFail );
+  RegisterBehaviorLeaf( TBehaviorRunning );
   BehaviorDecoratorList := TBehaviorList.create;
   BehaviorDecoratorList.ownitems := false;
   RegisterBehaviorDecorator( TBehavior_ForceSuccess );
   RegisterBehaviorDecorator( TBehavior_ForceFail );
-  RegisterBehaviorDecorator( TBehavior_Inverter );
+  RegisterBehaviorDecorator( TBehavior_Not );
 finalization
   BehaviorLeafList.Free;
   BehaviorDecoratorList.Free;
