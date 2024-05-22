@@ -1,7 +1,5 @@
 unit BehaviorTree;
 
-{$mode ObjFPC}{$H+}
-
 { Base Behavior Tree Classes
   rudimentary level implementation }
 
@@ -457,7 +455,7 @@ function TBehaviorComposite.incchildindex( runner : TBehaviorRunner ) : boolean;
   type tsequenceproc = function( sequence : TBehaviorSequence;
                                  runner : TBehaviorRunner ) : TBehaviorStatus;
   const sequenceprocs : array[behavior_running..behavior_fail] of tsequenceproc =
-                             ( @_sequencerunning, @_sequencesuccess, @_sequencefail );
+                             ( {$ifdef fpc}@{$endif}_sequencerunning, {$ifdef fpc}@{$endif}_sequencesuccess, {$ifdef fpc}@{$endif}_sequencefail );
 
 function TBehaviorSequence.processchildstatus( runner : TBehaviorRunner;
                                                childstatus : TBehaviorStatus ) : TBehaviorStatus;
@@ -514,7 +512,7 @@ class function TBehaviorSequence.behaviorclass : string;
   type tselectorproc = function( selector : TBehaviorSelector;
                                  runner : TBehaviorRunner ) : TBehaviorStatus;
   const selectorprocs : array[behavior_running..behavior_fail] of tselectorproc =
-                              ( @_selectorrunning, @_selectorsuccess, @_selectorfail );
+                              ( {$ifdef fpc}@{$endif}_selectorrunning, {$ifdef fpc}@{$endif}_selectorsuccess, {$ifdef fpc}@{$endif}_selectorfail );
 
 function TBehaviorSelector.processchildstatus( runner : TBehaviorRunner;
                                                childstatus : TBehaviorStatus ) : TBehaviorStatus;
@@ -738,9 +736,9 @@ type TTreeIterator = class
       callback := icallback;
       data := idata;
       depth := 0;
-      itnodefuncs[0] := @_doleaf;
-      itnodefuncs[1] := @_dodecorator;
-      itnodefuncs[2] := @_docomposite;
+      itnodefuncs[0] := {$ifdef fpc}@{$endif}_doleaf;
+      itnodefuncs[1] := {$ifdef fpc}@{$endif}_dodecorator;
+      itnodefuncs[2] := {$ifdef fpc}@{$endif}_docomposite;
     end;
 
    destructor TTreeIterator.destroy;

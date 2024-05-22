@@ -31,7 +31,7 @@ Port to Pascal: Erik Donovan Johnson erikquiet@gmail.com
 ===========================================================================
 
 *)
-{$MDelphi}
+
 unit GPC;
 
 interface

@@ -1,7 +1,5 @@
 unit BehaviorFile;
 
-{$mode ObjFPC}{$H+}
-
 interface
 
 uses

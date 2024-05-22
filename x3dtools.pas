@@ -1,10 +1,9 @@
 unit x3dtools;
 
-{$mode ObjFPC}{$H+}
-
 interface
 
 uses
+  {$ifndef FPC}System.types,{$endif}
   Classes, SysUtils,
   CastleVectors, CastleUtils,
   CastleColors,

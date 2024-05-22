@@ -1,7 +1,5 @@
 unit BehaviorRegister;
 
-{$mode ObjFPC}{$H+}
-
 interface
 
 uses

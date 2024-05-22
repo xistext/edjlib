@@ -1,7 +1,5 @@
 unit icosphere;
 
-{$mode ObjFPC}{$H+}
-
 {
   TIcoSphere is a TCastleScene that wraps the builder if you want to add them
     to your castle scene/viewport/transform and use like TCastleSphere.
@@ -31,7 +29,7 @@ type
 { low level classes used internally while building the scene,
      TIcoSphere that wraps these, or you can use it to build shapes and materials
      directly for your x3d nodes }
-  tpointcache = class( specialize tdictionary<int64,integer> );
+  tpointcache = class( {$ifdef fpc}specialize{$endif} tdictionary<int64,integer> );
   ticospherebuilder = class( tshapebuilder )
      public
      constructor create( iRadius : single;

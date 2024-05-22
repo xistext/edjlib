@@ -307,7 +307,7 @@ procedure TCollection.DeleteAll;
 FUNCTION TCollection.GetSorted : BOOLEAN;
  BEGIN
 //   Result := Info.Bits AND CB_Sorted > 0;
-   Result := (InsertProc = @InsertSorted)
+   Result := ({$ifndef FPC}@{$endif}InsertProc = @InsertSorted)
  END;
 
 PROCEDURE TCollection.SetSorted( iSorted : BOOLEAN );
