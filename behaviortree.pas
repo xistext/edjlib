@@ -128,14 +128,14 @@ type TBehaviorStatus = integer;
     {regardless if child is done running returns success regardless of childsuccess }
     TBehavior_ForceSuccess = class( TBehaviorDecorator )
        function processchildstatus( runner : TBehaviorRunner;
-                                    childstatus : TBehaviorStatus ) : TBehaviorStatus;
+                                    childstatus : TBehaviorStatus ) : TBehaviorStatus; override;
        function description : string; override;
        class function behaviorclass : string; override;
      end;
     {regardless if child is done running returns success regardless of childsuccess }
     TBehavior_ForceFail  = class( TBehaviorDecorator )
        function processchildstatus( runner : TBehaviorRunner;
-                                    childstatus : TBehaviorStatus ) : TBehaviorStatus;
+                                    childstatus : TBehaviorStatus ) : TBehaviorStatus; override;
        function description : string; override;
        class function behaviorclass : string; override;
      end;
@@ -619,7 +619,6 @@ class function TBehavior_ForceFail.behaviorclass : string;
  begin
    result := 'Fail';
  end;
-
 
 //------------------------------------
 
