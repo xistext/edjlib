@@ -713,13 +713,15 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
    {$endif}
    if istatus <> behavior_running then
     begin
-      assert( not DataStack.peekint( dum1 ));
+      while DataStack.peekint( dum1 ) do
+         DataStack.popint;                 {! this shouldn't be necessary, but something is leaving this on the stack }
       assert( not DataStack.peeksingle( dum2 ));
       if DataStack.IsEmpty then
          activenode := nil
       else
        begin
          activenode := TBehaviorNode( DataStack.pop ); { set active node to prior node in stack after success or fail }
+
          {!? how to apply istatus to the parent? }
        end;
     end;
