@@ -93,19 +93,22 @@ type TBehaviorStatus = integer;
        class function behaviorclass : string; override;
      end;
 
+    { this leaf does nothing and returns success }
     TBehaviorSucceed = class( TBehaviorLeaf )
        function Tick( runner : TBehaviorRunner;
                       secondspassed : single ) : TBehaviorStatus; override;
        class function behaviorclass : string; override;
      end;
 
+    { this leaf does nothing and returns fail }
     TBehaviorFail = class( TBehaviorLeaf )
        function Tick( runner : TBehaviorRunner;
                       secondspassed : single ) : TBehaviorStatus; override;
        class function behaviorclass : string; override;
      end;
 
-    TBehaviorRunning  = class( TBehaviorLeaf ) { running indefinitely }
+    { this leaf does nothing and returns running }
+    TBehaviorRunning  = class( TBehaviorLeaf )
        function Tick( runner : TBehaviorRunner;
                       secondspassed : single ) : TBehaviorStatus; override;
        class function behaviorclass : string; override;
@@ -231,14 +234,24 @@ function SuccessOrFail( condition : boolean ) : TBehaviorStatus;
  end;
 
 function SuccessOrRunning( condition : boolean ) : TBehaviorStatus;
-{ branchless test of condition to assign behavior_success or behavior_running }
-begin
-  result := ord( condition ) * behavior_success + ord( not condition ) * behavior_running;
-end;
+ { branchless test of condition to assign behavior_success or behavior_running }
+ begin
+   result := ord( condition ) * behavior_success + ord( not condition ) * behavior_running;
+ end;
 
 function FailOrRunning( condition : boolean ) : TBehaviorStatus;
+{ branchless test of condition to assign behavior_fail or behavior_running }
  begin
    result := ord( condition ) * behavior_fail + ord( not condition ) * behavior_running;
+ end;
+
+function limitmax( value : integer;
+                   max   : integer) : integer;
+ { branchless limit integer value to max }
+ var limit : boolean;
+ begin
+   limit := value > max;
+   result := ord( not limit ) * value + ord( limit ) * max;
  end;
 
 procedure NullNotification( behaviornode : TBehaviorNode;
@@ -455,7 +468,9 @@ function TBehaviorComposite.incchildindex( runner : TBehaviorRunner ) : boolean;
   type tsequenceproc = function( sequence : TBehaviorSequence;
                                  runner : TBehaviorRunner ) : TBehaviorStatus;
   const sequenceprocs : array[behavior_running..behavior_fail] of tsequenceproc =
-                             ( {$ifdef fpc}@{$endif}_sequencerunning, {$ifdef fpc}@{$endif}_sequencesuccess, {$ifdef fpc}@{$endif}_sequencefail );
+                             ( {$ifdef fpc}@{$endif}_sequencerunning,
+                               {$ifdef fpc}@{$endif}_sequencesuccess,
+                               {$ifdef fpc}@{$endif}_sequencefail );
 
 function TBehaviorSequence.processchildstatus( runner : TBehaviorRunner;
                                                childstatus : TBehaviorStatus ) : TBehaviorStatus;
@@ -512,7 +527,9 @@ class function TBehaviorSequence.behaviorclass : string;
   type tselectorproc = function( selector : TBehaviorSelector;
                                  runner : TBehaviorRunner ) : TBehaviorStatus;
   const selectorprocs : array[behavior_running..behavior_fail] of tselectorproc =
-                              ( {$ifdef fpc}@{$endif}_selectorrunning, {$ifdef fpc}@{$endif}_selectorsuccess, {$ifdef fpc}@{$endif}_selectorfail );
+                              ( {$ifdef fpc}@{$endif}_selectorrunning,
+                                {$ifdef fpc}@{$endif}_selectorsuccess,
+                                {$ifdef fpc}@{$endif}_selectorfail );
 
 function TBehaviorSelector.processchildstatus( runner : TBehaviorRunner;
                                                childstatus : TBehaviorStatus ) : TBehaviorStatus;
@@ -688,7 +705,6 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
     begin
       assert( not DataStack.peekint( dum1 ));
       assert( not DataStack.peeksingle( dum2 ));
-      {!!! how can this be invalid typecast after the above assertions?}
       if DataStack.IsEmpty then
          activenode := nil
       else
@@ -705,7 +721,7 @@ procedure treecallback( node   : TBehaviorNode;
                         data : pointer;
                         indent : integer );
  begin
-   {$ifdef dbgHeavior }
+   {$ifdef dbgBehavior }
    writeln( node.classname + ':' + node.name );
    {$endif}
  end;
@@ -793,14 +809,6 @@ type TTreeIterator = class
          node := TBehaviorComposite( node ).children[childix];
        end
     end;
-
-     function limitmax( value : integer;
-                        max   : integer) : integer;
-      var limit : boolean;
-      begin
-        limit := value > max;
-        result := ord( not limit ) * value + ord( limit ) * max;
-      end;
 
    procedure TTreeIterator.iterate( rootnode : TBehaviorNode );
     var currentnode : TBehaviorNode;
