@@ -57,6 +57,9 @@ type TBehaviorStatus = integer;
 
        class function behaviorclass : string; dynamic;
 
+       function processchildstatus( runner : TBehaviorRunner;
+                                    childstatus : TBehaviorStatus ) : TBehaviorStatus; virtual;
+
      end;
 
     { single child behavior node that can modify the results of that child in subclasses }
@@ -66,6 +69,8 @@ type TBehaviorStatus = integer;
                            iname : string = '' );
        { non core functionality }
        function childcount : integer; override;
+       function Tick( runner : TBehaviorRunner;
+                      secondspassed : single ) : TBehaviorStatus; override;
      end;
 
     { multichild behavior node.  how those children are processed depends on subclasses }
@@ -83,8 +88,6 @@ type TBehaviorStatus = integer;
        function RunNextChild( runner : TBehaviorRunner;
                               secondspassed : single ) : TBehaviorStatus;
        function incchildindex( runner : TBehaviorRunner ) : boolean;
-       function processchildstatus( runner : TBehaviorRunner;
-                                    childstatus : TBehaviorStatus ) : TBehaviorStatus; virtual; abstract;
      end;
 
     { sublass this to make checks and actions in overloaded Run methods }
@@ -124,23 +127,22 @@ type TBehaviorStatus = integer;
 
     {regardless if child is done running returns success regardless of childsuccess }
     TBehavior_ForceSuccess = class( TBehaviorDecorator )
-       function Tick( runner : TBehaviorRunner;
-                      secondspassed : single ) : TBehaviorStatus; override;
+       function processchildstatus( runner : TBehaviorRunner;
+                                    childstatus : TBehaviorStatus ) : TBehaviorStatus;
        function description : string; override;
        class function behaviorclass : string; override;
-
      end;
     {regardless if child is done running returns success regardless of childsuccess }
     TBehavior_ForceFail  = class( TBehaviorDecorator )
-       function Tick( runner : TBehaviorRunner;
-                      secondspassed : single ) : TBehaviorStatus; override;
+       function processchildstatus( runner : TBehaviorRunner;
+                                    childstatus : TBehaviorStatus ) : TBehaviorStatus;
        function description : string; override;
        class function behaviorclass : string; override;
      end;
     {inverts child results if not running }
     TBehavior_Not  = class( TBehaviorDecorator ) { Not }
-       function Tick( runner : TBehaviorRunner;
-                     secondspassed : single ) : TBehaviorStatus; override;
+       function processchildstatus( runner : TBehaviorRunner;
+                                    childstatus : TBehaviorStatus ) : TBehaviorStatus; override;
        function description : string; override;
        class function behaviorclass : string; override;
      end;
@@ -276,6 +278,12 @@ class function TBehaviorNode.behaviorclass : string;
    result := 'BehaviorNode';
  end;
 
+function TBehaviorNode.processchildstatus( runner : TBehaviorRunner;
+                                          childstatus : TBehaviorStatus ) : TBehaviorStatus;
+ begin
+   result := childstatus;
+ end;
+
 function TBehaviorNode.childcount : integer;
  begin
    result := 0;
@@ -310,6 +318,7 @@ function TBehaviorSucceed.Tick( runner : TBehaviorRunner;
  begin
    inherited;
    result := behavior_success;
+   runner.UpdateActiveRunStatus( result );
  end;
 
 class function TBehaviorSucceed.behaviorclass : string;
@@ -336,6 +345,7 @@ function TBehaviorRunning.Tick( runner : TBehaviorRunner;
  begin
    inherited;
    result := behavior_running;
+   runner.UpdateActiveRunStatus( result );
  end;
 
 class function TBehaviorRunning.behaviorclass : string;
@@ -356,6 +366,18 @@ constructor TBehaviorDecorator.create( ichild : TBehaviorNode;
 function TBehaviorDecorator.childcount : integer;
  begin
    result := 1;
+ end;
+
+function TBehaviorDecorator.Tick( runner : TBehaviorRunner;
+                                  secondspassed : single ) : TBehaviorStatus;
+ { inverts child results if not running }
+ begin
+   inherited; { debug output if needed }
+   runner.stackactivenode( child );
+   runner.activenode := child;
+   result := child.Tick( runner, secondspassed );
+   result := processchildstatus( runner, result );
+   runner.UpdateActiveRunStatus( result );
  end;
 
 //--------------------------------
@@ -563,17 +585,12 @@ class function TBehaviorSelector.behaviorclass : string;
 //------------------------------------
 { decorators }
 
-function TBehavior_ForceSuccess.Tick( runner : TBehaviorRunner;
-                                      secondspassed : single ) : TBehaviorStatus;
- { regardless if child is done running returns success regardless of childsuccess }
+function TBehavior_ForceSuccess.processchildstatus( runner : TBehaviorRunner;
+                                                    childstatus : TBehaviorStatus ) : TBehaviorStatus;
  begin
-   inherited; { debug output if needed }
-   assert( assigned( child ));
-   runner.stackactivenode( child );
-   result := child.Tick( runner, secondspassed );
-   result := successorrunning( result <> behavior_running );
-   runner.UpdateActiveRunStatus( result );
+   result := behavior_success;
  end;
+
 
 function TBehavior_ForceSuccess.description : string;
  begin
@@ -585,16 +602,12 @@ class function TBehavior_ForceSuccess.behaviorclass : string;
    result := 'Succeed';
  end;
 
-function TBehavior_ForceFail.Tick( runner : TBehaviorRunner;
-                                   secondspassed : single ) : TBehaviorStatus;
- { regardless if child is done running returns success regardless of childsuccess }
+//------------------------------------
+
+function TBehavior_ForceFail.processchildstatus( runner : TBehaviorRunner;
+                                                 childstatus : TBehaviorStatus ) : TBehaviorStatus;
  begin
-   inherited; { debug output if needed }
-   assert( assigned( child ));
-   runner.stackactivenode( child );
-   result := child.Tick( runner, secondspassed );
-   result := failorrunning( result <> behavior_running );
-   runner.UpdateActiveRunStatus( result );
+   result := behavior_fail;
  end;
 
 function TBehavior_ForceFail.description : string;
@@ -608,19 +621,16 @@ class function TBehavior_ForceFail.behaviorclass : string;
  end;
 
 
-function TBehavior_Not.Tick( runner : TBehaviorRunner;
-                             secondspassed : single ) : TBehaviorStatus;
- { inverts child results if not running }
+//------------------------------------
+
+function TBehavior_Not.processchildstatus( runner : TBehaviorRunner;
+                                           childstatus : TBehaviorStatus ) : TBehaviorStatus;
  begin
-   inherited; { debug output if needed }
-   runner.stackactivenode( child );
-   runner.activenode := child;
-   result := child.Tick( runner, secondspassed );
+   result := childstatus;
    case result of
       behavior_success : result := behavior_fail;
       behavior_fail    : result := behavior_success;
     end;
-   runner.UpdateActiveRunStatus( result );
  end;
 
 function TBehavior_Not.description : string;
@@ -671,11 +681,12 @@ function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
    { manage the stack when completing the run of children from a different tick }
    if assigned( activenode ) then
     begin
-      while ( result <> behavior_running ) and ( activenode is TBehaviorComposite ) do
+      while ( result <> behavior_running ) and
+            (( activenode is TBehaviorComposite ) or ( activenode is TBehaviorDecorator )) do
        begin
          { if already processed, will be 'running', so will do nothing, otherwise
-           insures child results of composites are handled, even when run directly from here. }
-         result := TBehaviorComposite( activenode ).processchildstatus( self, result );
+           insures child results of composites and decorators are handled, even when run directly from here. }
+         result := activenode.processchildstatus( self, result );
          if result <> behavior_running then
             UpdateActiveRunStatus( result ); { unwind stack if activenode isn't still running }
        end;
@@ -708,7 +719,10 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
       if DataStack.IsEmpty then
          activenode := nil
       else
+       begin
          activenode := TBehaviorNode( DataStack.pop ); { set active node to prior node in stack after success or fail }
+         {!? how to apply istatus to the parent? }
+       end;
     end;
  end;
 
