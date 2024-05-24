@@ -588,7 +588,9 @@ class function TBehaviorSelector.behaviorclass : string;
 function TBehavior_ForceSuccess.processchildstatus( runner : TBehaviorRunner;
                                                     childstatus : TBehaviorStatus ) : TBehaviorStatus;
  begin
-   result := behavior_success;
+   result := childstatus;
+   if result = behavior_fail then
+      result := behavior_success;
  end;
 
 
@@ -607,7 +609,9 @@ class function TBehavior_ForceSuccess.behaviorclass : string;
 function TBehavior_ForceFail.processchildstatus( runner : TBehaviorRunner;
                                                  childstatus : TBehaviorStatus ) : TBehaviorStatus;
  begin
-   result := behavior_fail;
+   result := childstatus;
+   if result = behavior_success then
+      result := behavior_fail;
  end;
 
 function TBehavior_ForceFail.description : string;
@@ -714,7 +718,7 @@ procedure TBehaviorRunner.UpdateActiveRunStatus( istatus : TBehaviorStatus );
    if istatus <> behavior_running then
     begin
       while DataStack.peekint( dum1 ) do
-         DataStack.popint;                 {! this shouldn't be necessary, but something is leaving this on the stack }
+         DataStack.popint;                 {! clearing stack like this shouldn't be necessary, but something is leaving this inex on the stack }
       assert( not DataStack.peeksingle( dum2 ));
       if DataStack.IsEmpty then
          activenode := nil
