@@ -74,6 +74,8 @@ destructor TBehaviorDataStack.destroy;
       if Item is TBehaviorData then
          Item.Free;
     end;
+   setlength( stack, 0 );
+   inherited;
  end;
 
 

@@ -552,7 +552,7 @@ var L, H, I, C: Integer;
 begin
   Result := False;
   {$ifdef threaded}IF ThreadLock THEN BEGIN {$endif}
-     Duplicates := FInfo.Bits AND CB_Duplicates > 1;
+     Dups := FInfo.Bits AND CB_Duplicates > 1;
      L := 0;
      H := Count - 1;
      while L <= H do

@@ -29,9 +29,6 @@ const behavior_notrun  = 0; { not used }
       behavior_running = 1;
       behavior_success = 2;
       behavior_fail    = 3;
-      {$ifdef dbgbehavior}
-      tickcount : integer = 0;
-      {$endif}
 
 type TBehaviorStatus = integer;
 
@@ -455,8 +452,7 @@ function TBehaviorComposite.RunNextChild( runner : TBehaviorRunner;
 function TBehaviorComposite.incchildindex( runner : TBehaviorRunner ) : boolean;
  var childix : integer;
  begin
-   if runner.datastack.peekint( childix ) then
-      runner.datastack.popint;
+   childix := runner.datastack.popint;
    inc( childix );
    result := childix < length( children );
    if result then
@@ -660,6 +656,7 @@ constructor TBehaviorRunner.create( iRootNode : TBehaviorNode );
 
 destructor TBehaviorRunner.destroy;
  begin
+   inherited;
    DataStack.Free;
  end;
 
@@ -673,10 +670,6 @@ procedure TBehaviorRunner.StackActiveNode( NewActiveNode : TBehaviorNode );
 
 function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
  begin
-   {$ifdef dbgBehavior}
-   write( ':Tick'+IntToStr( tickcount )+':');
-   inc( tickcount );
-   {$endif }
    if not assigned( activenode ) then  { start over from root }
       activenode := rootnode;
    result := activenode.Tick( self, secondspassed ); { active node will change to the deepest running child }
@@ -697,9 +690,7 @@ function TBehaviorRunner.RunTick( secondspassed : single ) : TBehaviorStatus;
    else
     begin
       assert( datastack.IsEmpty );    { stack should be clear when finished }
-      {$ifdef dbgBehavior}write('.');{$endif}
     end;
-   {$ifdef dbgBehavior}writeln( '' );{$endif}
  end;
 
   {$ifdef dbgBehavior}
