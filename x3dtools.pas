@@ -4,11 +4,11 @@ interface
 
 uses
   {$ifndef FPC}System.types,{$endif}
-  Classes, SysUtils,
+  Classes, SysUtils, Math,
   CastleVectors, CastleUtils,
   CastleColors,
   CastleRenderOptions,
-  x3dnodes, livetools;
+  x3dnodes, BaseTools;
 
 function buildcolorline( count : integer;
                          color : TCastleColorRGB;
@@ -71,6 +71,13 @@ type TTriSetWrapper = class
      destructor destroy; override;
    end;
 
+  tstripbuilder = class( tshapebuilder )
+     function buildshape( const p1, p2 : TVector2;
+                          terrainheight : THeightAboveTerrainEvent;
+                          h : single = 0;
+                          w : single = 1;
+                          stepdist : single = 1 ) : TShapeNode;
+   end;
 
 implementation //===============================================================
 
@@ -267,6 +274,74 @@ destructor tshapebuilder.destroy;
  begin
    Vertices.Free;
    Indexes.Free;
+ end;
+
+//-------------------------------------------
+
+function tstripbuilder.buildshape( const p1, p2 : TVector2;
+                                   terrainheight : THeightAboveTerrainEvent;
+                                   h : single = 0; { height above ground }
+                                   w : single = 1;
+                                   stepdist : single = 1 ) : TShapeNode;
+var Triangles : TIndexedTriangleSetNode;
+    Appearance: TAppearanceNode;
+    CoordinateNode : TCoordinateNode;
+    dist : single;
+    delta, delta2 : TVector2;
+    i, steps : integer;
+    p : TVector2;
+    pL, pR : TVector2;
+    vL, vR : TVector3;
+begin
+  Result:= TShapeNode.Create;
+  delta := p2 - p1;
+  dist := hypot( delta.x, delta.y );
+  steps := trunc( dist / stepdist ) + 1;
+  delta := delta / steps;
+  p := p1;
+
+  Indexes.capacity := ( steps + 1 ) * 6;
+  Vertices.Capacity := ( steps + 1 ) * 2;
+
+  { calculate left and right vertex from p }
+  w := w * 0.5;
+  delta2 := vector2( delta.y, delta.x ).Normalize * w;
+  pL := p - delta2;
+  pR := p + delta2;
+
+  {! get y elevation for v1, vr }
+  vL := vector3( pL.X, 0, pL.Y );
+  vR := vector3( pR.X, 0, pR.Y );
+  terrainheight( vL, vL.y );
+  terrainheight( vR, vR.y );
+  Vertices.Add( vL );
+  Vertices.Add( vR );
+  pl := pl + delta;
+  pr := pr + delta;
+  for i := 0 to steps - 1 do
+   begin
+     { get y elevation for v1, vr }
+     vL := vector3( pL.X, 0, pL.Y );
+     vR := vector3( pR.X, 0, pR.Y );
+     terrainheight( vl, vL.y );
+     terrainheight( vr, vR.y );
+     Vertices.Add( vL );
+     Vertices.Add( vR );
+     pL := pL + delta;
+     pR := pR + delta;
+   end;
+  Triangles := TIndexedTriangleSetNode.Create;
+  Triangles.SetIndex( Indexes );
+  CoordinateNode := TCoordinateNode.Create;
+  CoordinateNode.SetPoint( Vertices );
+  Triangles.Coord := CoordinateNode;
+
+  Result.Geometry := Triangles;
+
+  Appearance := TAppearanceNode.Create;
+  Appearance.Material := buildmaterial;
+
+  Result.Appearance := Appearance;
  end;
 
 end.
