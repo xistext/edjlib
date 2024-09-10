@@ -1,6 +1,7 @@
 unit basetypeparams;
 
-{ base class for typeparameter classes }
+{ base class for typeparameter classes
+ }
 
 interface
 

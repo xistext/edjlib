@@ -67,8 +67,13 @@ type TTriSetWrapper = class
      public
      Vertices : TVector3List;
      Indexes  : TInt32List;
+     bothsides : boolean;
      constructor create;
      destructor destroy; override;
+     function buildshape : TShapeNode;
+     function addVertex( const p : TVector3 ) : integer;
+     procedure addface( i0, i1, i2, i3 : integer );
+     procedure addtri( i0, i1, i2 : integer );
    end;
 
   tstripbuilder = class( tshapebuilder )
@@ -255,11 +260,14 @@ function tmaterialbuilder.buildmaterial : TPhysicalMaterialNode;
  begin
    Result := TPhysicalMaterialNode.Create;
    Result.Roughness := 1;
+   Result.Metallic := 0;
    Result.BaseColor := BaseColor;
    if TextureUrl <> '' then
     begin
       Texture := TImageTextureNode.Create;
       Texture.SetUrl([TextureURL]);
+      Texture.RepeatS:= true;
+      Texture.RepeatT := true;;
       Result.BaseTexture := Texture;
     end;
  end;
@@ -268,6 +276,7 @@ constructor tshapebuilder.create;
  begin
    Vertices := TVector3List.Create;
    Indexes  := TInt32List.Create;
+   bothsides := false;
  end;
 
 destructor tshapebuilder.destroy;
@@ -275,6 +284,55 @@ destructor tshapebuilder.destroy;
    Vertices.Free;
    Indexes.Free;
  end;
+
+procedure Tshapebuilder.addface( i0, i1, i2, i3 : integer );
+ begin
+   with indexes do
+    begin
+      add( i0 ); add( i2 ); add( i3 );
+      add( i3 ); add( i1 ); add( i0 );
+    end;
+ end;
+
+procedure Tshapebuilder.addtri( i0, i1, i2 : integer );
+ begin
+   with indexes do
+    begin
+      add( i0 ); add( i1 ); add( i2 );
+    end;
+ end;
+
+
+function tshapebuilder.buildshape : TShapeNode;
+var Triangles : TIndexedTriangleSetNode;
+    Appearance: TAppearanceNode;
+    CoordinateNode : TCoordinateNode;
+begin
+  Result:= TShapeNode.Create;
+
+  Triangles := TIndexedTriangleSetNode.Create;
+  Triangles.Solid := not bothsides; { see both sides }
+
+  Triangles.SetIndex( Indexes );
+  CoordinateNode := TCoordinateNode.Create;
+  CoordinateNode.SetPoint( Vertices );
+  Triangles.Coord := CoordinateNode;
+
+  Result.Geometry := Triangles;
+
+  Appearance := TAppearanceNode.Create;
+  Appearance.Material := buildmaterial;
+
+  Result.Appearance := Appearance;
+
+ end;
+
+function tshapebuilder.addVertex( const p : TVector3 ) : integer;
+ begin
+   result := Vertices.Count;
+   Vertices.Add( p  );
+ end;
+
 
 //-------------------------------------------
 

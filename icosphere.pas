@@ -162,8 +162,7 @@ function ticospherebuilder.addVertex( const p : TVector3 ) : integer;
       wiggle := 0.1 * sqrt( 4 - Level );
       factor := factor * ( 1 + Random * wiggle * 2 - wiggle );
     end;
-   result := Vertices.Count;
-   Vertices.Add( p * factor );
+   result := inherited addVertex( p * factor );
  end;
 
 function ticospherebuilder.getMiddlePoint( p1, p2 : integer ) : integer;
