@@ -60,20 +60,38 @@ type TTriSetWrapper = class
     public
     BaseColor : TVector3;
     TextureUrl : string;
+    Transparency : single;
     function buildmaterial : TPhysicalMaterialNode;
   end;
 
   tshapebuilder = class( tmaterialbuilder )
      public
+
      Vertices : TVector3List;
      Indexes  : TInt32List;
-     bothsides : boolean;
+     TexCoords : TVector2List;
+
      constructor create;
      destructor destroy; override;
      function buildshape : TShapeNode;
      function addVertex( const p : TVector3 ) : integer;
-     procedure addface( i0, i1, i2, i3 : integer );
-     procedure addtri( i0, i1, i2 : integer );
+
+     procedure addface( i0, i1, i2, i3 : integer ); overload;  { add indexes to define face }
+     procedure addface( const v0, v1, v2, v3 : TVector3 ); overload; { add unindexed vertexes to define face }
+     procedure addface( const v0, v1, v2, v3 : TVector3;
+                        const t0, t1, t2, t3 : TVector2 ); overload; { add unindexed vertexes to define face }
+
+     procedure addtri( i0, i1, i2 : integer ); overload; { add indexes to define triangle }
+     procedure addtri( const v0, v1, v2 : TVector3 ); overload; { add unindexed vertexes to define triangle }
+     procedure addtri( const v0, v1, v2 : TVector3;
+                       const t0, t1, t2 : TVector2 ); overload; { add unindexed vertexes to define triangle }
+
+     procedure clear;
+
+     public
+
+     fIndexed : boolean;
+     bothsides : boolean;
    end;
 
   tstripbuilder = class( tshapebuilder )
@@ -83,6 +101,16 @@ type TTriSetWrapper = class
                           w : single = 1;
                           stepdist : single = 1 ) : TShapeNode;
    end;
+
+(*  ttextureinfo = class
+
+     url : string;
+     color    : TVector3;
+     texturew : single; { width of texture in world coordinates }
+
+     constructor create;
+
+   end;*)
 
 implementation //===============================================================
 
@@ -262,6 +290,7 @@ function tmaterialbuilder.buildmaterial : TPhysicalMaterialNode;
    Result.Roughness := 1;
    Result.Metallic := 0;
    Result.BaseColor := BaseColor;
+   Result.Transparency := transparency;
    if TextureUrl <> '' then
     begin
       Texture := TImageTextureNode.Create;
@@ -276,17 +305,23 @@ constructor tshapebuilder.create;
  begin
    Vertices := TVector3List.Create;
    Indexes  := TInt32List.Create;
+   TexCoords := TVector2List.Create;
    bothsides := false;
+   transparency := 1;
+   fIndexed := true;
  end;
 
 destructor tshapebuilder.destroy;
  begin
+   inherited;
    Vertices.Free;
    Indexes.Free;
+   TexCoords.Free;
  end;
 
-procedure Tshapebuilder.addface( i0, i1, i2, i3 : integer );
+procedure Tshapebuilder.addface( i0, i1, i2, i3 : integer ); overload;
  begin
+   assert( fIndexed );
    with indexes do
     begin
       add( i0 ); add( i2 ); add( i3 );
@@ -294,37 +329,137 @@ procedure Tshapebuilder.addface( i0, i1, i2, i3 : integer );
     end;
  end;
 
-procedure Tshapebuilder.addtri( i0, i1, i2 : integer );
+procedure Tshapebuilder.addface( const v0, v1, v2, v3 : TVector3 ); overload;
  begin
+   AddVertex( v0 ); AddVertex( v2 ); AddVertex( v3 );
+   AddVertex( v3 ); AddVertex( v1 ); AddVertex( v0 );
+ end;
+
+procedure TShapeBuilder.addface( const v0, v1, v2, v3 : TVector3;
+                                 const t0, t1, t2, t3 : TVector2 ); overload; { add unindexed vertexes to define face }
+ var texturescale : single;
+     tscaled : TVector2;
+     facew, faceh : single;
+     scale : tvector2;
+ begin
+   texturescale := 1/2.4; { 2.4 meters }
+
+   AddVertex( v0 ); AddVertex( v2 ); AddVertex( v3 );
+   AddVertex( v3 ); AddVertex( v1 ); AddVertex( v0 );
+
+   facew := ( v1 - v0 ).length;
+   faceh := ( v2 - v0 ).length;
+   scale := vector2( facew*texturescale, faceh*texturescale );
+
+   TexCoords.add( t0 * scale );               { t0 }
+
+   TexCoords.add( t2 * scale );               { t2 }
+
+   TexCoords.add( t3 * scale );               { t3 }
+
+   TexCoords.add( t3 * scale );               { t3 }
+   TexCoords.add( t1 * scale );               { t1 }
+
+   TexCoords.add( t0 * scale );               { t0 }
+ end;
+
+procedure Tshapebuilder.addtri( i0, i1, i2 : integer ); overload;
+ begin
+   assert( fIndexed );
    with indexes do
     begin
       add( i0 ); add( i1 ); add( i2 );
     end;
  end;
 
+procedure Tshapebuilder.addtri( const v0, v1, v2 : TVector3 ); overload;
+ begin
+   addvertex( v0 ); addvertex( v1 ); addvertex( v2 );
+ end;
+
+procedure Tshapebuilder.addtri( const v0, v1, v2 : TVector3;
+                                const t0, t1, t2 : TVector2 ); overload;
+ var facew, faceh : single;
+     scale : tvector2;
+     texturescale : single;
+ begin
+   addvertex( v0 );
+   addvertex( v1 );
+   addvertex( v2 );
+   texturescale := 1/2.4; { 2.4 meters }
+
+   facew := ( v1 - v0 ).length;
+   faceh := ( v2 - v0 ).length;
+   scale := vector2( facew*texturescale, faceh*texturescale );
+
+   texcoords.add( t0 * scale );
+   texcoords.add( t1 * scale );
+   texcoords.add( t2 * scale );
+ end;
+
+procedure TShapebuilder.clear;
+ begin
+   Vertices.Clear;
+   Indexes.Clear;
+   TexCoords.Clear;
+ end;
 
 function tshapebuilder.buildshape : TShapeNode;
-var Triangles : TIndexedTriangleSetNode;
+var TrianglesI : TIndexedTriangleSetNode;
+    Triangles : TTriangleSetNode;
     Appearance: TAppearanceNode;
     CoordinateNode : TCoordinateNode;
+    TexCoordNode : TTextureCoordinateNode;
 begin
   Result:= TShapeNode.Create;
 
-  Triangles := TIndexedTriangleSetNode.Create;
-  Triangles.Solid := not bothsides; { see both sides }
-
-  Triangles.SetIndex( Indexes );
   CoordinateNode := TCoordinateNode.Create;
   CoordinateNode.SetPoint( Vertices );
-  Triangles.Coord := CoordinateNode;
 
-  Result.Geometry := Triangles;
+  if findexed then
+   begin
+     TrianglesI := TIndexedTriangleSetNode.Create;
+     TrianglesI.Solid := not bothsides; { see both sides }
+
+     TrianglesI.SetIndex( Indexes );
+     TrianglesI.Coord := CoordinateNode;
+
+     if TexCoords.Count > 0 then
+      begin
+        TexCoordNode := TTextureCoordinateNode.Create;
+        TexCoordNode.SetPoint(TexCoords);
+        TrianglesI.TexCoord := TexCoordNode;
+      end;
+     Result.Geometry := TrianglesI;
+   end
+  else
+   begin
+     Triangles := TTriangleSetNode.Create;
+     Triangles.Solid := not bothsides; { see both sides }
+     Triangles.Coord := CoordinateNode;
+     if TexCoords.Count > 0 then
+      begin
+        TexCoordNode := TTextureCoordinateNode.Create;
+        TexCoordNode.SetPoint(TexCoords);
+        Triangles.TexCoord := TexCoordNode;
+      end;
+     Result.Geometry := Triangles;
+   end;
 
   Appearance := TAppearanceNode.Create;
   Appearance.Material := buildmaterial;
+  if Transparency > 0 then
+   begin
+     Appearance.AlphaMode := amBlend;
+     Appearance.LineProperties := TLinePropertiesNode.create;
+     Appearance.LineProperties.linetype := ltDashed;
+   end
+  else
+   begin
+     Appearance.AlphaMode := amOpaque;
+   end;
 
   Result.Appearance := Appearance;
-
  end;
 
 function tshapebuilder.addVertex( const p : TVector3 ) : integer;
