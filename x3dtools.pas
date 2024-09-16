@@ -10,6 +10,8 @@ uses
   CastleRenderOptions,
   x3dnodes, BaseTools;
 
+type tmaterialid = word;
+
 function buildcolorline( count : integer;
                          color : TCastleColorRGB;
                          var Lines : TCoordinateNode;
@@ -22,7 +24,24 @@ function makeUnlitMaterial( color : TVector3 ) : TUnlitMaterialNode;
 procedure addtexture( Shape : TShapeNode;
                          turl  : string );
 
-type TTriSetWrapper = class
+type tmaterialinfo = class
+
+        constructor create; overload;
+        constructor create( name, url : string;
+                            const color    : TVector3;
+                            texturew : single = 1 ); overload;
+
+        public
+
+        fname     : string;
+        furl      : string;
+        fcolor    : TVector3;
+        ftexturew : single;   { width of texture in world coordinates }
+
+
+      end;
+
+     TTriSetWrapper = class
          constructor create( iCapacity : dword = 4 );
          destructor destroy; override;
          procedure build( texture : string = '' ); virtual;
@@ -58,10 +77,12 @@ type TTriSetWrapper = class
 
   tmaterialbuilder = class
     public
-    BaseColor : TVector3;
-    TextureUrl : string;
+    MaterialInfo : TMaterialInfo;
     Transparency : single;
     function buildmaterial : TPhysicalMaterialNode;
+    constructor create;
+    destructor destroy; override;
+    procedure setmaterial( const material : TMaterialInfo );
   end;
 
   tshapebuilder = class( tmaterialbuilder )
@@ -102,17 +123,87 @@ type TTriSetWrapper = class
                           stepdist : single = 1 ) : TShapeNode;
    end;
 
-(*  ttextureinfo = class
+  TMaterialMgr = class
+     materials : array of tmaterialinfo;
 
-     url : string;
-     color    : TVector3;
-     texturew : single; { width of texture in world coordinates }
-
-     constructor create;
-
-   end;*)
+     destructor destroy; override;
+     function RegisterMaterial( material : tmaterialinfo ) : tmaterialid;
+     function count : integer;
+     function getmaterial( materialid : tmaterialid;
+                           var material : tmaterialinfo ) : boolean;
+     function roofmaterialidoftext( roofmaterialtext : string ) : TMaterialId;
+   end;
 
 implementation //===============================================================
+
+constructor Tmaterialinfo.create;
+ begin
+   fname := '';
+   furl := '';
+   ftexturew := 1;
+   fcolor := vector3( 0.5, 0.5, 0.5 );
+ end;
+
+constructor Tmaterialinfo.create( name, url : string;
+                                  const color    : TVector3;
+                                  texturew : single = 1 );
+ begin
+   fname := name;
+   furl := url;
+   ftexturew := texturew;
+   fcolor := color;
+ end;
+
+
+destructor TMaterialMgr.destroy;
+ var i : integer;
+ begin
+   inherited;
+   for i := 0 to length( materials ) - 1 do
+      materials[i].free;
+   setlength( materials, 0 );
+ end;
+
+function TMaterialMgr.RegisterMaterial( material : tmaterialinfo ) : tmaterialid;
+ var ix : integer;
+ begin
+   ix := length( materials );
+   setlength( materials, ix + 1 );
+   materials[ix] := material;
+   result := ix;
+ end;
+
+function TMaterialMgr.count : integer;
+ begin
+   result := length( materials );
+ end;
+
+function tmaterialmgr.getmaterial( materialid : tmaterialid;
+                                       var material : tmaterialinfo ) : boolean;
+ begin
+   material := nil;
+   result := materialid < length( materials );
+   if result then
+      material := materials[materialid];
+ end;
+
+function tmaterialmgr.roofmaterialidoftext( roofmaterialtext : string ) : TMaterialId;
+ var i : integer;
+ begin
+   result := 0;
+   for i := 0 to length( materials ) - 1 do
+    begin
+      with materials[i] do
+       begin
+         if roofmaterialtext = fname then
+          begin
+            result := i;
+          end;
+       end;
+    end;
+ end;
+
+//---------------------------
 
 function makePhysicalMaterial( color : TVector3 ) : TPhysicalMaterialNode;
  begin
@@ -283,18 +374,36 @@ function TIndexedTriSetWrapper.initializeNode : TAbstractComposedGeometryNode;
 
 //-------------------------------------
 
+constructor tmaterialbuilder.create;
+ begin
+   materialinfo := tmaterialinfo.create;
+ end;
+
+destructor tmaterialbuilder.destroy;
+ begin
+   inherited;
+   materialinfo.free;
+ end;
+
+procedure tmaterialbuilder.setmaterial( const material : TMaterialInfo );
+ begin
+   if assigned( materialinfo ) then
+      materialinfo.free;
+   materialinfo := material;
+ end;
+
 function tmaterialbuilder.buildmaterial : TPhysicalMaterialNode;
  var Texture : TImageTextureNode;
  begin
    Result := TPhysicalMaterialNode.Create;
    Result.Roughness := 1;
    Result.Metallic := 0;
-   Result.BaseColor := BaseColor;
+   Result.BaseColor := MaterialInfo.fcolor;
    Result.Transparency := transparency;
-   if TextureUrl <> '' then
+   if MaterialInfo.fUrl <> '' then
     begin
       Texture := TImageTextureNode.Create;
-      Texture.SetUrl([TextureURL]);
+      Texture.SetUrl([MaterialInfo.fUrl]);
       Texture.RepeatS:= true;
       Texture.RepeatT := true;;
       Result.BaseTexture := Texture;
@@ -303,6 +412,7 @@ function tmaterialbuilder.buildmaterial : TPhysicalMaterialNode;
 
 constructor tshapebuilder.create;
  begin
+   inherited;
    Vertices := TVector3List.Create;
    Indexes  := TInt32List.Create;
    TexCoords := TVector2List.Create;
