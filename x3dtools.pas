@@ -1,5 +1,7 @@
 unit x3dtools;
 
+{ helper classes and routines for working with x3d nodes }
+
 interface
 
 uses
@@ -77,6 +79,7 @@ type tmaterialinfo = class
 
   tmaterialbuilder = class
     public
+    ownmaterial : boolean;
     MaterialInfo : TMaterialInfo;
     Transparency : single;
     function buildmaterial : TPhysicalMaterialNode;
@@ -131,13 +134,14 @@ type tmaterialinfo = class
      function count : integer;
      function getmaterial( materialid : tmaterialid;
                            var material : tmaterialinfo ) : boolean;
-     function roofmaterialidoftext( roofmaterialtext : string ) : TMaterialId;
+     function materialidoftext( materialtext : string ) : TMaterialId;
    end;
 
 implementation //===============================================================
 
 constructor Tmaterialinfo.create;
  begin
+   inherited;
    fname := '';
    furl := '';
    ftexturew := 1;
@@ -148,12 +152,14 @@ constructor Tmaterialinfo.create( name, url : string;
                                   const color    : TVector3;
                                   texturew : single = 1 );
  begin
+   inherited create;
    fname := name;
    furl := url;
    ftexturew := texturew;
    fcolor := color;
  end;
 
+//------------------------------------
 
 destructor TMaterialMgr.destroy;
  var i : integer;
@@ -179,7 +185,7 @@ function TMaterialMgr.count : integer;
  end;
 
 function tmaterialmgr.getmaterial( materialid : tmaterialid;
-                                       var material : tmaterialinfo ) : boolean;
+                                   var material : tmaterialinfo ) : boolean;
  begin
    material := nil;
    result := materialid < length( materials );
@@ -187,7 +193,7 @@ function tmaterialmgr.getmaterial( materialid : tmaterialid;
       material := materials[materialid];
  end;
 
-function tmaterialmgr.roofmaterialidoftext( roofmaterialtext : string ) : TMaterialId;
+function tmaterialmgr.materialidoftext( materialtext : string ) : TMaterialId;
  var i : integer;
  begin
    result := 0;
@@ -195,7 +201,7 @@ function tmaterialmgr.roofmaterialidoftext( roofmaterialtext : string ) : TMater
     begin
       with materials[i] do
        begin
-         if roofmaterialtext = fname then
+         if materialtext = fname then
           begin
             result := i;
           end;
@@ -376,19 +382,22 @@ function TIndexedTriSetWrapper.initializeNode : TAbstractComposedGeometryNode;
 
 constructor tmaterialbuilder.create;
  begin
+   ownmaterial := true;
    materialinfo := tmaterialinfo.create;
  end;
 
 destructor tmaterialbuilder.destroy;
  begin
    inherited;
-   materialinfo.free;
+   if ownmaterial then
+      materialinfo.free;
  end;
 
 procedure tmaterialbuilder.setmaterial( const material : TMaterialInfo );
  begin
-   if assigned( materialinfo ) then
+   if ownmaterial and assigned( materialinfo ) then
       materialinfo.free;
+   ownmaterial := false;
    materialinfo := material;
  end;
 
@@ -452,7 +461,7 @@ procedure TShapeBuilder.addface( const v0, v1, v2, v3 : TVector3;
      facew, faceh : single;
      scale : tvector2;
  begin
-   texturescale := 1/2.4; { 2.4 meters }
+   texturescale := 1/MaterialInfo.ftexturew;
 
    AddVertex( v0 ); AddVertex( v2 ); AddVertex( v3 );
    AddVertex( v3 ); AddVertex( v1 ); AddVertex( v0 );
@@ -492,15 +501,28 @@ procedure Tshapebuilder.addtri( const v0, v1, v2 : TVector3;
  var facew, faceh : single;
      scale : tvector2;
      texturescale : single;
+     l0, l1 : single;
  begin
    addvertex( v0 );
    addvertex( v1 );
    addvertex( v2 );
-   texturescale := 1/2.4; { 2.4 meters }
+   texturescale := 1/MaterialInfo.ftexturew;
 
    facew := ( v1 - v0 ).length;
-   faceh := ( v2 - v0 ).length;
-   scale := vector2( facew*texturescale, faceh*texturescale );
+   l0 := ( v2 - v0 ).length;
+   l1 := ( v2 - v1 ).length;
+   if l0 = l1 then
+    begin
+      faceh := ( v2 - (( v0 + v1 ) * 0.5 )).length;
+
+    end
+   else
+   if l0 < l1 then
+      faceh := l0
+   else
+      faceh := l1;
+
+   scale := vector2( facew*texturescale, faceh * texturescale );
 
    texcoords.add( t0 * scale );
    texcoords.add( t1 * scale );
