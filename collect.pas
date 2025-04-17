@@ -7,10 +7,12 @@ UNIT Collect;
 
   1997 EDJ. made thread safe. Use ifdef threaded to enable thread safety for threaded applications
   2004 EDJ. Made more memory efficient.  24-28 byte overhead reduced to 12 byte.
-
   Compiles under D5..XE6.
   Can use QStrings under D5..D7 for optimized string compare
- }
+
+  removed nobjects dependency so create no longer virtual;
+
+  }
 
 { Xistext }
 
@@ -18,7 +20,7 @@ INTERFACE
 
 //{$ifdef lowdebug}{$D+}{$O-}{$else}{$O+}{$D-}{$endif}
 
-uses Classes, Sysutils, nobjects;
+uses Classes, Sysutils{, nobjects};
 
 const
   coIndexError = -1;              { Index out of range }
@@ -53,12 +55,12 @@ TYPE TCollection = CLASS;
      PPointerList = ^TPointerList;
      TPointerList = array[0..Maxint div 16 - 1] of Pointer;
 
- TCollection = CLASS( TdObject )
+ TCollection = CLASS//( TdObject )
   public
     Count  : INTEGER;          { Current Number of Items, 8 bytes }
     It     : PPointerList;     { array of pointers }
   public
-    constructor Create; OVERRIDE;
+    constructor Create; //OVERRIDE;
     constructor init( aLimit, aDelta : INTEGER );
     destructor  Destroy; override; {before deallocating object it disposes all items and the storage array}
 
@@ -128,7 +130,7 @@ TYPE TCollection = CLASS;
  END;
 
  TSortedCollection = class(TCollection)
-    constructor Create; OVERRIDE;
+    constructor Create; //OVERRIDE;
     constructor init( aLimit, aDelta : INTEGER );
     { Duplicates: boolean; now in Bits }
     function IndexOf (Item : Pointer): Integer; override;
